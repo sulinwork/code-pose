@@ -1,0 +1,4 @@
+cache:
+  caffeine:
+    enable: true
+    spec: expireAfterWrite=5s
