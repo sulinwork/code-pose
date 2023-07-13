@@ -24,7 +24,7 @@ public class CacheConfig extends CachingConfigurerSupport {
 
     private CaffeineCacheProperties caffeineCacheProperties;
 
-    private CacheConfig(CaffeineCacheProperties caffeineCacheProperties) {
+    public CacheConfig(CaffeineCacheProperties caffeineCacheProperties) {
         this.caffeineCacheProperties = caffeineCacheProperties;
     }
 
