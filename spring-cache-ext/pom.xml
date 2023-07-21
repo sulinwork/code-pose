@@ -6,14 +6,12 @@
         <groupId>com.sulin.code.pose</groupId>
         <artifactId>code-pose</artifactId>
         <version>0.0.1-SNAPSHOT</version>
-        <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.sulin.code-pose</groupId>
-    <artifactId>spring-cache-ext</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>spring-cache-ext</name>
-    <description>spring-cache-ext</description>
 
+    <artifactId>spring-cache-ext</artifactId>
+    <packaging>jar</packaging>
+
+    <name>spring-cache-ext</name>
 
     <dependencies>
         <dependency>
@@ -47,6 +45,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
         </dependency>
     </dependencies>
 

@@ -19,9 +19,11 @@ import org.springframework.util.ReflectionUtils;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CustomRedisCacheManager extends RedisCacheManager implements SmartInitializingSingleton, ApplicationContextAware {
     private final Map<String, RedisCacheConfiguration> initialCacheConfigurations;
+    private final Map<String, Type> cacheReturnTypeMap = new ConcurrentHashMap<>();
     private ApplicationContext applicationContext;
 
     public CustomRedisCacheManager(RedisCacheWriter cacheWriter, Map<String, RedisCacheConfiguration> initialCacheConfigurations) {
@@ -39,6 +41,14 @@ public class CustomRedisCacheManager extends RedisCacheManager implements SmartI
         return caches;
     }
 
+    @Override
+    protected RedisCache createRedisCache(String name, RedisCacheConfiguration cacheConfig) {
+        if (Objects.nonNull(cacheConfig) && cacheReturnTypeMap.containsKey(name)) {
+            Type genericReturnType = cacheReturnTypeMap.get(name);
+            cacheConfig = cacheConfig.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer(genericReturnType)));
+        }
+        return super.createRedisCache(name,cacheConfig);
+    }
 
     @Override
     public void afterSingletonsInstantiated() {
@@ -56,16 +66,12 @@ public class CustomRedisCacheManager extends RedisCacheManager implements SmartI
 
     private void refreshRedisCacheConfiguration(Method method, Cacheable cacheable) {
         final String[] cacheNames = cacheable.cacheNames();
+        String cacheManagerName = cacheable.cacheManager();
+        Object bean = applicationContext.getBean(cacheManagerName);
+        if (!bean.getClass().isAssignableFrom(this.getClass())) return;
         final Type genericReturnType = method.getGenericReturnType();
-        Collection<String> allCacheNames = getCacheNames();
         for (String cacheName : cacheNames) {
-            if (!allCacheNames.contains(cacheName)) continue;
-            RedisCacheConfiguration redisCacheConfiguration = initialCacheConfigurations.get(cacheName);
-            if (Objects.isNull(redisCacheConfiguration)) {
-                redisCacheConfiguration = RedisCacheConfiguration.defaultCacheConfig();
-            }
-            redisCacheConfiguration = redisCacheConfiguration.serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisSerializer(genericReturnType)));
-            initialCacheConfigurations.put(cacheName, redisCacheConfiguration);
+            cacheReturnTypeMap.put(cacheName, genericReturnType);
         }
     }
 
