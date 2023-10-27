@@ -17,6 +17,7 @@
         <module>base-kit</module>
         <module>code-sample</module>
         <module>spring-cache-ext</module>
+        <module>spring-params-test</module>
     </modules>
     <packaging>pom</packaging>
 
