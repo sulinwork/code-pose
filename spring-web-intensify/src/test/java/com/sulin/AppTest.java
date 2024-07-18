@@ -1,4 +1,4 @@
-package com.sulin.code.pose;
+package com.sulin;
 
 import junit.framework.Test;
 import junit.framework.TestCase;

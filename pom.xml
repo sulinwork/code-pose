@@ -18,6 +18,7 @@
         <module>code-sample</module>
         <module>spring-cache-ext</module>
         <module>spring-params-test</module>
+        <module>spring-web-intensify</module>
     </modules>
     <packaging>pom</packaging>
 
