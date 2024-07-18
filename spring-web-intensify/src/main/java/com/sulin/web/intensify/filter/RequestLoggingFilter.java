@@ -1,8 +1,9 @@
 package com.sulin.web.intensify.filter;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.server.ServletServerHttpRequest;
+import com.sulin.web.intensify.properties.RequestLoggingProperties;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
@@ -13,41 +14,24 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Enumeration;
-import java.util.Set;
 
 /**
  * 参考这里
  * org.springframework.web.filter.AbstractRequestLoggingFilter
  */
+@AllArgsConstructor
+@Slf4j
 public class RequestLoggingFilter extends OncePerRequestFilter {
-//    @Value("${c2c.web.logging.enable:true}")
-    private boolean webLoggingEnabled;
-
-//    @Value("${c2c.web.logging.request-message-max-len:1024}")
-    private int requestMessageMaxLen;
-//    @Value("${c2c.web.logging.response-message-max-len:1024}")
-    private int responseMessageMaxLen;
-//    @Value("${c2c.web.logging.ignore-paths:[]}")
-    private Set<String> ignorePaths;
-
-//    @Value("${c2c.web.logging.allow-methods:['POST']}")
-    private Set<String> allowMethods;
 
 
-    private boolean hitIgnorePaths(HttpServletRequest request) {
-        String requestURI = request.getRequestURI();
-        return ignorePaths.contains(requestURI);
-    }
-
-    private boolean allowMethod(HttpServletRequest request) {
-        return allowMethods.contains(request.getMethod());
-    }
+    private RequestLoggingProperties requestLoggingProperties;
 
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        if (hitIgnorePaths(request) || !allowMethod(request)) {
+        String requestMethod = request.getMethod();
+        String requestURI = request.getRequestURI();
+        if (!requestLoggingProperties.isEnable() && requestLoggingProperties.hitExcludeRequestMethod(requestMethod) || requestLoggingProperties.hitExcludeRequestPath(requestMethod, requestURI)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -64,13 +48,13 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(requestToUse, responseToUse);
         } finally {
-            if (webLoggingEnabled && !isAsyncStarted(requestToUse)) {
+            if (!isAsyncStarted(requestToUse)) {
                 //打印日志
                 String requestMessage = getRequestMessage(requestToUse);
                 String responseMessage = getResponseMessage(responseToUse);
-//                log.info("request:{},response:{}",
-//                        StringUtils.left(requestMessage, requestMessageMaxLen),
-//                        StringUtils.left(responseMessage, responseMessageMaxLen));
+                log.info("request:{},response:{}",
+                        StringUtils.left(requestMessage, requestLoggingProperties.getRequestMaxLen()),
+                        StringUtils.left(responseMessage, requestLoggingProperties.getResponseMaxLen()));
             }
             if (responseToUse instanceof ContentCachingResponseWrapper) {
                 ((ContentCachingResponseWrapper) responseToUse).copyBodyToResponse();
@@ -99,17 +83,17 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         if (queryString != null) {
             msg.append('?').append(queryString);
         }
-        //print header
-        HttpHeaders headers = new ServletServerHttpRequest(request).getHeaders();
-        Enumeration<String> names = request.getHeaderNames();
-        while (names.hasMoreElements()) {
-            String header = names.nextElement();
-            if (!header.toUpperCase().startsWith("X-XF")) {
-                headers.remove(header);
-            }
-        }
-
-        msg.append(", headers=").append(headers);
+//        //print header
+//        HttpHeaders headers = new ServletServerHttpRequest(request).getHeaders();
+//        Enumeration<String> names = request.getHeaderNames();
+//        while (names.hasMoreElements()) {
+//            String header = names.nextElement();
+//            if (!header.toUpperCase().startsWith("X-XF")) {
+//                headers.remove(header);
+//            }
+//        }
+//
+//        msg.append(", headers=").append(headers);
         //print payload
         if (request instanceof ContentCachingRequestWrapper) {
             byte[] contentAsByteArray = ((ContentCachingRequestWrapper) request).getContentAsByteArray();
