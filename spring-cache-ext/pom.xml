@@ -52,6 +52,10 @@
             <artifactId>spring-boot-test</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.sulin.code.pose</groupId>
+            <artifactId>base-kit</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

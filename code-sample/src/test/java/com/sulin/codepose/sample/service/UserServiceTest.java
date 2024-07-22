@@ -15,8 +15,15 @@ public class UserServiceTest {
     private UserService userService;
 
     @Test
-    public void testCache(){
-        List<User> user = userService.getUser(10L);
-        System.out.println(user);
+    public void testCache() {
+        for (int i = 0; i < 10; i++) {
+            List<User> user = userService.getUser(10L);
+            System.out.println(user);
+            if (i == 0) {
+                user.get(0).setName("242423432");
+                System.out.println("update.....");
+            }
+        }
+
     }
 }

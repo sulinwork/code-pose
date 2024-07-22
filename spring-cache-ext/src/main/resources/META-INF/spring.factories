@@ -1,3 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.sulin.codepose.springcacheext.CustomRedisCacheAutoConfiguration\
-  
+com.sulin.codepose.springcacheext.CacheExtAutoConfiguration

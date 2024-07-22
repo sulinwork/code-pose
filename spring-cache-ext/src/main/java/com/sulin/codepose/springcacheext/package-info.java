@@ -19,3 +19,4 @@ package com.sulin.codepose.springcacheext;
 //2.clone 需要对象实现Cloneable接口 (开发者容易忘记)
 //3.toJson 在 parseObject (有点搞笑 不知道性能如何)
 //4.java自带的序列化和反序列化
+//fix了 直接local cache也用json存储
