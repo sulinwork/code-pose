@@ -39,6 +39,16 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.sulin.code.pose</groupId>
+            <artifactId>spring-params-test</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.sulin.code.pose</groupId>
+            <artifactId>base-kit</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

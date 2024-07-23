@@ -12,4 +12,7 @@ import java.lang.annotation.*;
 @ArgumentsSource(JsonArgumentsProvider.class)
 public @interface JsonFileSource {
     String value();
+
+    //映射到多个对象内
+    boolean multiMapping() default false;
 }
