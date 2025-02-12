@@ -19,6 +19,7 @@
         <module>spring-cache-ext</module>
         <module>spring-params-test</module>
         <module>spring-web-intensify</module>
+        <module>event-framework</module>
     </modules>
     <packaging>pom</packaging>
 
