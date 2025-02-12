@@ -1,29 +1,30 @@
 package com.sulin.codepose.event.chain;
 
+import com.sulin.codepose.event.Event;
 import com.sulin.codepose.event.handler.EventHandler;
 
 import java.util.*;
 
-public class EventHandlerHolder implements Iterable<EventHandler> {
-    private final List<EventHandler> eventHandlers = new LinkedList<>();
+public class EventHandlerHolder<T extends Event> implements Iterable<EventHandler<T>> {
+    private final List<EventHandler<T>> eventHandlers = new LinkedList<>();
 
     @Override
-    public Iterator<EventHandler> iterator() {
+    public Iterator<EventHandler<T>> iterator() {
         return eventHandlers.iterator();
     }
 
 
     @Override
-    public Spliterator<EventHandler> spliterator() {
+    public Spliterator<EventHandler<T>> spliterator() {
         return Spliterators.spliterator(this.eventHandlers, 0);
     }
 
 
-    public EventHandlerHolder add(Class<EventHandler> cla) {
+    public <P extends EventHandler<T>> EventHandlerHolder<T> add(Class<P> cla) {
         return this;
     }
 
-    public EventHandlerHolder addWithChild(Class<EventHandler> mainHandler, Class<EventHandler>... subHandlers) {
+    public <P extends EventHandler<T>> EventHandlerHolder<T> addWithChild(Class<P> mainHandler, Class<P> ... subHandlers) {
         return this;
     }
 }
