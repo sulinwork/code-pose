@@ -20,6 +20,7 @@
         <module>spring-params-test</module>
         <module>spring-web-intensify</module>
         <module>event-framework</module>
+        <module>xxl-spring-boot-start</module>
     </modules>
     <packaging>pom</packaging>
 

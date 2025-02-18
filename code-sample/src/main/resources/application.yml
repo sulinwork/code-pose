@@ -2,8 +2,17 @@ spring:
   redis:
     host: localhost
     port: 6379
+  application:
+    name: code-sample
 
 cache:
   caffeine:
     enabled: false
     value-serializer: json
+
+#xxl:
+#  job:
+#    admin-address: https://888.com
+#    app-name: ${spring.application.name}
+#    log-retention-days: 1
+#    access-token: abc

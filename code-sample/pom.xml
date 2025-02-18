@@ -49,6 +49,12 @@
             <groupId>com.sulin.code.pose</groupId>
             <artifactId>base-kit</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.sulin.code.pose</groupId>
+            <artifactId>xxl-spring-boot-start</artifactId>
+            <version>1.0.0</version>
+        </dependency>
     </dependencies>
 
 </project>
