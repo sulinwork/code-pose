@@ -1,8 +1,30 @@
 package com.sulin.codepose.event.handler;
 
-import com.sulin.codepose.event.Event;
 
+import com.sulin.codepose.event.Event;
+import com.sulin.codepose.event.EventHandlerInfo;
+import com.sulin.codepose.event.chain.EventChainContext;
+import com.sulin.codepose.event.enums.EventHandleResult;
+import com.sulin.codepose.event.enums.EventInfoType;
+
+/**
+ * 事件处理者
+ */
 public interface EventHandler<T extends Event> {
-    //事件本身 Event  + 当前handler执行的上下文参数
-    void handler(T event);
+
+    EventHandleResult handle(T event, EventHandlerInfo handlerInfo, EventChainContext context);
+
+
+    //大部分场景用不到这个
+    default EventInfoType concernEventInfoType(){
+        return () -> "EMPTY";
+    }
+
+    /**
+     * 设置分组父处理者，只有子处理者才设置
+     */
+    void setParentGroupHandler(EventGroupHandler<T> orderEventGroupHandler);
+
+    EventGroupHandler<T> getParentGroupHandler();
+
 }
