@@ -22,6 +22,10 @@ public class EventFactory {
     @Resource
     private EventHandlerChainFactory eventHandlerChainFactory;
 
+    public <Domain> Event buildEvent(Domain domain, EventType<Domain> eventType) {
+        return buildEvent(domain, eventType, Collections.emptyList());
+    }
+
     public <Domain> Event buildEvent(Domain domain, EventType<Domain> eventType, List<? extends EventHandlerContext> eventHandlerContexts) {
         Event event = eventType.getEvent(domain);
         // 获取事件处理链，获取对应事件的处理者
@@ -37,7 +41,6 @@ public class EventFactory {
         }
         return event;
     }
-
 
     private List<EventHandlerInfo> initOrderEventHandlerInfos(Event event, List<? extends EventHandler<?>> orderEventHandlerList, List<? extends EventHandlerContext> eventHandlerContexts) {
         List<EventHandlerInfo> handlerInfoList = new ArrayList<>();

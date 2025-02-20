@@ -39,9 +39,8 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
 
         // 遍历所有事件处理类（不包括分组子处理者）并进行处理
         for (EventHandler<T> eventHandler : getEventHandlers()) {
-            EventHandlerInfo handlerInfo;
-            // 获取当前事件处理类信息
-            handlerInfo = event.getEventHandlerInfo(eventHandler);
+            //拿着chain上的handler和event需要执行的handler进行匹配
+            EventHandlerInfo handlerInfo = event.getEventHandlerInfo(eventHandler);
             if (handlerInfo == null) {
                 // 事件重试时会出现该情况（因为只把没处理的处理者查出来执行）
                 continue;
@@ -77,12 +76,6 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
     @Override
     public void afterPropertiesSet() {
         EventHandlerHolder<T> holder = new EventHandlerHolder<>();
-//        if (TemplateInitFlag.USE_TEMPLATE == templateInitFlag()) {
-//            // 通过模板初始化处理链
-//            holder = initHandlersByTemplate();
-//        } else {
-//            holder = new OrderEventHandlerHolder<>();
-//        }
         // 增加自定义处理者
         appendHandlers(holder);
         // 设置allOrderEventHandlerList

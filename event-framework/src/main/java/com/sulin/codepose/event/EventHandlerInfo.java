@@ -17,6 +17,7 @@ import org.springframework.util.CollectionUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -158,7 +159,6 @@ public class EventHandlerInfo {
 
     /**
      * 延迟任务是否到达执行时间
-     *
      */
     public boolean arrayExecuteTime() {
         LocalDateTime now = LocalDateTime.now();
@@ -194,5 +194,9 @@ public class EventHandlerInfo {
         } else {
             throw new IllegalArgumentException("illegal state, handleStatus: " + handleStatus);
         }
+    }
+
+    public <T extends EventHandlerContext> T parseContext(Class<T> t) {
+        return Optional.ofNullable(this.context).map(c -> Gsons.GSON.fromJson(c, t)).orElse(null);
     }
 }
