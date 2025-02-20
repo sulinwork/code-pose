@@ -3,7 +3,8 @@ package com.sulin.codepose.event;
 import com.sulin.codepose.event.enums.EventGroupMainHandleResult;
 import com.sulin.codepose.event.enums.EventHandleResult;
 import com.sulin.codepose.event.enums.EventHandleStatus;
-import com.sulin.codepose.event.eventinfo.EventInfo;
+import com.sulin.codepose.event.enums.EventHandlerMode;
+import com.sulin.codepose.event.eventinfo.EventHandlerContext;
 import com.sulin.codepose.event.handler.EventDelayHandler;
 import com.sulin.codepose.event.handler.EventHandler;
 import com.sulin.codepose.kit.json.Gsons;
@@ -37,11 +38,8 @@ public class EventHandlerInfo {
     /**
      * 事件信息
      */
-    private String eventInfo;
-    /**
-     * 订单事件信息类型
-     */
-    private String eventInfoType;
+    private String context;
+
     /**
      * 处理状态，-1:初始化、0:待处理、1:已处理、2:处理中
      */
@@ -51,70 +49,51 @@ public class EventHandlerInfo {
      */
     private Integer retryNum;
     /**
-     * 执行时间，有分钟级别的延迟时间，依赖重试任务，现在重试任务的时间周期是1分钟，并且查询的是1分钟之前的数据
-     * 所以使用这个功能的前提是，时间的延迟时间尽量大于1分钟，并且能接受分钟级别的误差
+     * 期望执行时间，有延迟时间，依赖xxl job
      */
-    private LocalDateTime executeTime;
+    private LocalDateTime expectedExecuteTime;
+
+    /**
+     * 乐观锁
+     */
+    private Integer version;
+
+    //handler模式  0:普通  1:未来
+    private EventHandlerMode handlerMode;
 
     /**
      * 初始化订单事件处理信息
      */
-    public static EventHandlerInfo init(Event Event, EventHandler<? extends Event> orderEventHandler, List<? extends EventInfo> eventInfos) {
-        EventHandlerInfo handlerInfo = null;
-        String eventInfo = getValidEventInfo(orderEventHandler, eventInfos);
-        // 有事件信息才初始对象
-        if (StringUtils.isNoneBlank(eventInfo)) {
-            handlerInfo = new EventHandlerInfo();
-            handlerInfo.setEventInfo(eventInfo);
-            handlerInfo.setEventInfoType(orderEventHandler.concernEventInfoType().getEventInfoType());
-            handlerInfo.setEventHandler(orderEventHandler.getClass().getSimpleName());
-            if (orderEventHandler.getParentGroupHandler() != null) {
-                handlerInfo.setParentGroupHandler(orderEventHandler.getParentGroupHandler().getClass().getSimpleName());
-            }
-            handlerInfo.setHandleStatus(EventHandleStatus.PROCESSING_STATUS);
-            //获取handler执行时间
-            LocalDateTime executeTime = LocalDateTime.now();
-            if (orderEventHandler instanceof EventDelayHandler) {
-                EventDelayHandler orderEventDelayHandler = (EventDelayHandler) orderEventHandler;
-                executeTime = orderEventDelayHandler.getExecuteTime(Event, handlerInfo);
-                handlerInfo.setHandleStatus(EventHandleStatus.PENDING_STATUS);
-            }
-            handlerInfo.setExecuteTime(executeTime);
-            handlerInfo.setRetryNum(0);
+    public static EventHandlerInfo init(Event Event, EventHandler<? extends Event> orderEventHandler, List<? extends EventHandlerContext> eventHandlerContexts) {
+        EventHandlerInfo handlerInfo = new EventHandlerInfo();
+        ;
+        String context = matchContext(orderEventHandler, eventHandlerContexts);
+        handlerInfo.setContext(context);
+        handlerInfo.setEventHandler(orderEventHandler.getClass().getSimpleName());
+        if (orderEventHandler.getParentGroupHandler() != null) {
+            handlerInfo.setParentGroupHandler(orderEventHandler.getParentGroupHandler().getClass().getSimpleName());
         }
+        handlerInfo.setHandleStatus(EventHandleStatus.PROCESSING_STATUS);
+        handlerInfo.setHandlerMode(EventHandlerMode.NORMAL);
+        //获取handler执行时间
+        LocalDateTime executeTime = LocalDateTime.now();
+        if (orderEventHandler instanceof EventDelayHandler) {
+            EventDelayHandler orderEventDelayHandler = (EventDelayHandler) orderEventHandler;
+            executeTime = orderEventDelayHandler.getExecuteTime(Event, handlerInfo);
+            handlerInfo.setHandleStatus(EventHandleStatus.PENDING_STATUS);
+            handlerInfo.setHandlerMode(EventHandlerMode.FUTURE);
+        }
+        handlerInfo.setExpectedExecuteTime(executeTime);
+        handlerInfo.setRetryNum(0);
         return handlerInfo;
     }
 
-    private static String getValidEventInfo(EventHandler<? extends Event> eventHandler, List<? extends EventInfo> eventInfos) {
+    private static String matchContext(EventHandler<? extends Event> eventHandler, List<? extends EventHandlerContext> eventInfos) {
         // 过滤事件处理者关注的eventInfo
-        List<EventInfo> concernEventInfos = eventInfos.stream().filter(ei -> eventHandler.concernEventInfoType() == ei.eventInfoType()).collect(Collectors.toList());
-        if (!CollectionUtils.isEmpty(concernEventInfos)) {
-            if (concernEventInfos.size() == 1) {
-                return Gsons.GSON.toJson(concernEventInfos.get(0));
-            } else {
-                return  Gsons.GSON.toJson(concernEventInfos);
-            }
-        }
-        return null;
+        List<EventHandlerContext> concernEventHandlerContexts = eventInfos.stream().filter(ei -> Objects.equals(eventHandler.concernEventHandlerContextUniqueCode(), ei.contextUniqueCode())).collect(Collectors.toList());
+        if (CollectionUtils.isEmpty(concernEventHandlerContexts)) return null;
+        return Gsons.GSON.toJson(concernEventHandlerContexts.get(0));
     }
-
-//    /**
-//     * 获取事件信息订单对象，带EventExtendInfo
-//     */
-//    public EventInfo genEventInfo(TypeToken type) {
-//        return eventInfoType.getEventInfo(eventInfo, type);
-//    }
-//
-//    /**
-//     * 获取事件信息订单对象
-//     */
-//    public EventInfo genEventInfo() {
-//        return genEventInfo(null);
-//    }
-
-//    public List<EventInfoResource> getEventInfoResources() {
-//        return eventInfoType.getEventInfoResources(eventInfo);
-//    }
 
     public void incrRetryNum() {
         retryNum++;
@@ -180,11 +159,10 @@ public class EventHandlerInfo {
     /**
      * 延迟任务是否到达执行时间
      *
-     * @return
      */
     public boolean arrayExecuteTime() {
         LocalDateTime now = LocalDateTime.now();
-        if (Objects.nonNull(executeTime) && now.isBefore(executeTime)) {
+        if (Objects.nonNull(expectedExecuteTime) && now.isBefore(expectedExecuteTime)) {
             log.info("延迟任务还未到执行时间:{},now:{}", eventHandler, now);
             return false;
         }

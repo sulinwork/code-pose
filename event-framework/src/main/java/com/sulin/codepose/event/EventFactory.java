@@ -4,6 +4,7 @@ package com.sulin.codepose.event;
 import com.sulin.codepose.event.chain.EventHandlerChain;
 import com.sulin.codepose.event.chain.EventHandlerChainFactory;
 import com.sulin.codepose.event.enums.EventType;
+import com.sulin.codepose.event.eventinfo.EventHandlerContext;
 import com.sulin.codepose.event.handler.EventHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
@@ -21,7 +22,7 @@ public class EventFactory {
     @Resource
     private EventHandlerChainFactory eventHandlerChainFactory;
 
-    public <Domain> Event buildEvent(Domain domain, EventType<Domain> eventType) {
+    public <Domain> Event buildEvent(Domain domain, EventType<Domain> eventType, List<? extends EventHandlerContext> eventHandlerContexts) {
         Event event = eventType.getEvent(domain);
         // 获取事件处理链，获取对应事件的处理者
         EventHandlerChain<?> handlerChain = eventHandlerChainFactory.getChain(event);
@@ -30,7 +31,7 @@ public class EventFactory {
             List<? extends EventHandler<?>> allOrderEventHandlers = handlerChain.getAllEventHandlers();
             if (CollectionUtils.isEmpty(allOrderEventHandlers)) {
                 // 设置订单事件的处理者信息
-                event.setEventHandlerInfoList(initOrderEventHandlerInfos(event, allOrderEventHandlers));
+                event.setEventHandlerInfoList(initOrderEventHandlerInfos(event, allOrderEventHandlers, eventHandlerContexts));
                 return event;
             }
         }
@@ -38,13 +39,11 @@ public class EventFactory {
     }
 
 
-    private List<EventHandlerInfo> initOrderEventHandlerInfos(Event event, List<? extends EventHandler<?>> orderEventHandlerList) {
+    private List<EventHandlerInfo> initOrderEventHandlerInfos(Event event, List<? extends EventHandler<?>> orderEventHandlerList, List<? extends EventHandlerContext> eventHandlerContexts) {
         List<EventHandlerInfo> handlerInfoList = new ArrayList<>();
         for (EventHandler<?> eventHandler : orderEventHandlerList) {
-            EventHandlerInfo handlerInfo = EventHandlerInfo.init(event, eventHandler, Collections.emptyList());
-            if (handlerInfo != null) {
-                handlerInfoList.add(handlerInfo);
-            }
+            EventHandlerInfo handlerInfo = EventHandlerInfo.init(event, eventHandler, eventHandlerContexts);
+            handlerInfoList.add(handlerInfo);
         }
         return handlerInfoList;
     }

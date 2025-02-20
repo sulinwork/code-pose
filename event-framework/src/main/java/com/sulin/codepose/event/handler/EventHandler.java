@@ -5,7 +5,7 @@ import com.sulin.codepose.event.Event;
 import com.sulin.codepose.event.EventHandlerInfo;
 import com.sulin.codepose.event.chain.EventChainContext;
 import com.sulin.codepose.event.enums.EventHandleResult;
-import com.sulin.codepose.event.enums.EventInfoType;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 事件处理者
@@ -16,8 +16,8 @@ public interface EventHandler<T extends Event> {
 
 
     //大部分场景用不到这个
-    default EventInfoType concernEventInfoType(){
-        return () -> "EMPTY";
+    default String concernEventHandlerContextUniqueCode(){
+        return StringUtils.EMPTY;
     }
 
     /**
