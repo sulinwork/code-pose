@@ -14,7 +14,6 @@ public interface EventHandler<T extends Event> {
 
     EventHandleResult handle(T event, EventHandlerInfo handlerInfo, EventChainContext context);
 
-
     //大部分场景用不到这个
     default String concernEventHandlerContextUniqueCode(){
         return StringUtils.EMPTY;

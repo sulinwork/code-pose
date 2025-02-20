@@ -8,9 +8,9 @@ import com.sulin.codepose.event.EventHandlerInfo;
 import java.time.LocalDateTime;
 
 
-public interface EventDelayHandler {
+public interface EventDelayHandler<T extends Event> {
 
 
-    LocalDateTime getExecuteTime(Event event, EventHandlerInfo handlerInfo);
+    LocalDateTime getExecuteTime(T event, EventHandlerInfo handlerInfo);
 
 }
