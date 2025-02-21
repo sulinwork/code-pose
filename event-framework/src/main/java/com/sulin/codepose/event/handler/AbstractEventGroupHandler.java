@@ -33,8 +33,6 @@ public abstract class AbstractEventGroupHandler<T extends Event> extends Abstrac
         if (!CollectionUtils.isEmpty(subEventHandlers)) {
             checkDelayHandler(subEventHandlers);
             this.subEventHandlers.addAll(subEventHandlers);
-            // 设置分组父处理者
-            subEventHandlers.forEach(s -> s.setParentGroupHandler(this));
         }
         return this;
     }

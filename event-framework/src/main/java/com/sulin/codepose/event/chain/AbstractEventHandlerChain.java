@@ -1,13 +1,13 @@
 package com.sulin.codepose.event.chain;
 
 
-
 import com.sulin.codepose.event.Event;
 import com.sulin.codepose.event.EventHandlerInfo;
 import com.sulin.codepose.event.enums.EventHandleResult;
 import com.sulin.codepose.event.handler.EventGroupHandler;
 import com.sulin.codepose.event.handler.EventHandler;
 import com.sulin.codepose.event.repository.EventRepository;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
@@ -15,7 +15,9 @@ import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Resource;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 事件处理链抽象类
@@ -32,6 +34,9 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
 
     // 事件处理者（包括分组子处理者）
     protected List<EventHandler<T>> allEventHandlers = new ArrayList<>();
+
+    @Getter
+    protected Map<EventHandler<T>, EventGroupHandler<T>> groupRefMap = new HashMap<>();
 
     @Override
     public void handle(T event) {
@@ -80,6 +85,8 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
         appendHandlers(holder);
         // 设置allOrderEventHandlerList
         setAllHandlers(holder);
+        //初始化映射关系
+        this.groupRefMap = holder.getGroupRefMap();
     }
 
 
@@ -121,4 +128,8 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
         return allEventHandlers;
     }
 
+    @Override
+    public EventGroupHandler<T> getParentEventHandler(EventHandler<T> subHandler) {
+        return groupRefMap.get(subHandler);
+    }
 }
