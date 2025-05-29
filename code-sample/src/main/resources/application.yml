@@ -16,3 +16,7 @@ cache:
 #    app-name: ${spring.application.name}
 #    log-retention-days: 1
 #    access-token: abc
+
+
+a:
+  demo: ${A_DEMO}

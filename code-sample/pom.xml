@@ -55,6 +55,11 @@
             <artifactId>xxl-spring-boot-start</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-framework</artifactId>
+            <version>5.7.1</version>
+        </dependency>
     </dependencies>
 
 </project>
