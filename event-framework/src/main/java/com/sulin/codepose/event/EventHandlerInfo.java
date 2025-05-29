@@ -79,7 +79,7 @@ public class EventHandlerInfo {
         //获取handler执行时间
         LocalDateTime executeTime = LocalDateTime.now();
         if (orderEventHandler instanceof EventDelayHandler) {
-            EventDelayHandler orderEventDelayHandler = (EventDelayHandler) orderEventHandler;
+            EventDelayHandler<Event> orderEventDelayHandler = (EventDelayHandler<Event>) orderEventHandler;
             executeTime = orderEventDelayHandler.getExecuteTime(Event, handlerInfo);
             handlerInfo.setHandleStatus(EventHandleStatus.PENDING_STATUS);
             handlerInfo.setHandlerMode(EventHandlerMode.FUTURE);
