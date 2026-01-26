@@ -128,8 +128,8 @@ public abstract class AbstractEventHandlerChain<T extends Event> implements Even
         return allEventHandlers;
     }
 
-    @Override
-    public EventGroupHandler<T> getParentEventHandler(EventHandler<T> subHandler) {
-        return groupRefMap.get(subHandler);
-    }
+//    @Override
+//    public EventGroupHandler<T> getParentEventHandler(EventHandler<T> subHandler) {
+//        return groupRefMap.get(subHandler);
+//    }
 }
