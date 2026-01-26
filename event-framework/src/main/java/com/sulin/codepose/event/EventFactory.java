@@ -1,6 +1,7 @@
 package com.sulin.codepose.event;
 
 
+import com.sulin.codepose.event.chain.AbstractEventHandlerChain;
 import com.sulin.codepose.event.chain.EventHandlerChain;
 import com.sulin.codepose.event.chain.EventHandlerChainFactory;
 import com.sulin.codepose.event.enums.EventType;
@@ -35,17 +36,21 @@ public class EventFactory {
             List<? extends EventHandler<?>> allOrderEventHandlers = handlerChain.getAllEventHandlers();
             if (CollectionUtils.isEmpty(allOrderEventHandlers)) {
                 // 设置订单事件的处理者信息
-                event.setEventHandlerInfoList(initOrderEventHandlerInfos(event, allOrderEventHandlers, eventHandlerContexts));
+                event.setEventHandlerInfoList(initOrderEventHandlerInfos(event, allOrderEventHandlers,handlerChain, eventHandlerContexts));
                 return event;
             }
         }
         return event;
     }
 
-    private List<EventHandlerInfo> initOrderEventHandlerInfos(Event event, List<? extends EventHandler<?>> orderEventHandlerList, List<? extends EventHandlerContext> eventHandlerContexts) {
+    private List<EventHandlerInfo> initOrderEventHandlerInfos(Event event,
+                                                              List<? extends EventHandler<?>> orderEventHandlerList,
+                                                              EventHandlerChain<?> handlerChain,
+                                                              List<? extends EventHandlerContext> eventHandlerContexts) {
         List<EventHandlerInfo> handlerInfoList = new ArrayList<>();
-        for (EventHandler<?> eventHandler : orderEventHandlerList) {
-            EventHandlerInfo handlerInfo = EventHandlerInfo.init(event, eventHandler, eventHandlerContexts);
+
+        for (EventHandler<? extends Event> eventHandler : orderEventHandlerList) {
+            EventHandlerInfo handlerInfo = EventHandlerInfo.init(event, eventHandler, handlerChain.getGroupRefMap().get(eventHandler), eventHandlerContexts);
             handlerInfoList.add(handlerInfo);
         }
         return handlerInfoList;

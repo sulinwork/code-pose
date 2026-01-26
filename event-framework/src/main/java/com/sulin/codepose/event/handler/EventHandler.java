@@ -19,11 +19,4 @@ public interface EventHandler<T extends Event> {
         return StringUtils.EMPTY;
     }
 
-    /**
-     * 设置分组父处理者，只有子处理者才设置
-     */
-    void setParentGroupHandler(EventGroupHandler<T> orderEventGroupHandler);
-
-    EventGroupHandler<T> getParentGroupHandler();
-
 }

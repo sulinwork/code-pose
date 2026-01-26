@@ -6,6 +6,7 @@ import com.sulin.codepose.event.enums.EventHandleStatus;
 import com.sulin.codepose.event.enums.EventHandlerMode;
 import com.sulin.codepose.event.eventinfo.EventHandlerContext;
 import com.sulin.codepose.event.handler.EventDelayHandler;
+import com.sulin.codepose.event.handler.EventGroupHandler;
 import com.sulin.codepose.event.handler.EventHandler;
 import com.sulin.codepose.kit.json.Gsons;
 import lombok.Data;
@@ -65,14 +66,16 @@ public class EventHandlerInfo {
     /**
      * 初始化订单事件处理信息
      */
-    public static EventHandlerInfo init(Event Event, EventHandler<? extends Event> orderEventHandler, List<? extends EventHandlerContext> eventHandlerContexts) {
+    public static EventHandlerInfo init(Event Event,
+                                        EventHandler<? extends Event> orderEventHandler,
+                                        EventGroupHandler<? extends Event> mainHandler,
+                                        List<? extends EventHandlerContext> eventHandlerContexts) {
         EventHandlerInfo handlerInfo = new EventHandlerInfo();
-        ;
         String context = matchContext(orderEventHandler, eventHandlerContexts);
         handlerInfo.setContext(context);
         handlerInfo.setEventHandler(orderEventHandler.getClass().getSimpleName());
-        if (orderEventHandler.getParentGroupHandler() != null) {
-            handlerInfo.setParentGroupHandler(orderEventHandler.getParentGroupHandler().getClass().getSimpleName());
+        if (mainHandler != null) {
+            handlerInfo.setParentGroupHandler(mainHandler.getClass().getSimpleName());
         }
         handlerInfo.setHandleStatus(EventHandleStatus.PROCESSING_STATUS);
         handlerInfo.setHandlerMode(EventHandlerMode.NORMAL);

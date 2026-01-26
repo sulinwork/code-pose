@@ -22,6 +22,7 @@
         <module>event-framework</module>
         <module>xxl-spring-boot-start</module>
         <module>es-standard</module>
+        <module>event-framework-v2</module>
     </modules>
     <packaging>pom</packaging>
 
@@ -63,6 +64,13 @@
                 <groupId>com.sulin.code.pose</groupId>
                 <artifactId>spring-params-test</artifactId>
                 <version>0.0.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>2.7.15</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

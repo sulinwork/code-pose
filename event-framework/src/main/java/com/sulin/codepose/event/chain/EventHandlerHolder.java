@@ -1,13 +1,13 @@
 package com.sulin.codepose.event.chain;
 
 
-
-
 import com.sulin.codepose.event.Event;
 import com.sulin.codepose.event.handler.AbstractEventGroupHandler;
+import com.sulin.codepose.event.handler.EventGroupHandler;
 import com.sulin.codepose.event.handler.EventHandler;
 import com.sulin.codepose.event.utils.SpringContextUtils;
 import lombok.Getter;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,6 +20,8 @@ import java.util.stream.Stream;
 public class EventHandlerHolder<T extends Event> implements Iterable<EventHandler<T>> {
 
     private final List<EventHandler<T>> eventHandlers = new ArrayList<>();
+
+    protected final Map<EventHandler<T>, EventGroupHandler<T>> groupRefMap = new HashMap<>();
 
 
     public EventHandlerHolder() {
@@ -40,7 +42,7 @@ public class EventHandlerHolder<T extends Event> implements Iterable<EventHandle
 
     public synchronized EventHandlerHolder<T> addFirst(Class<? extends EventHandler<T>> eventHandler) {
         removeIfPresent(eventHandler);
-        this.eventHandlers.addFirst(SpringContextUtils.getBean(eventHandler));
+        this.eventHandlers.add(0, SpringContextUtils.getBean(eventHandler));
         return this;
     }
 
@@ -54,14 +56,18 @@ public class EventHandlerHolder<T extends Event> implements Iterable<EventHandle
     public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> mainEventHandler,
                                                                     Class<? extends EventHandler<T>>... subeventHandler) {
         AbstractEventGroupHandler<T> orderEventGroupHandler = (AbstractEventGroupHandler<T>) createIfAbsentAtClass(mainEventHandler);
-        orderEventGroupHandler.addSubHandlers(Arrays.stream(subeventHandler).map(SpringContextUtils::getBean).collect(Collectors.toList()));
+        List<EventHandler<T>> subHandlers = Arrays.stream(subeventHandler).map(SpringContextUtils::getBean).collect(Collectors.toList());
+        orderEventGroupHandler.addSubHandlers(subHandlers);
+        appendGroupHandlerRef(orderEventGroupHandler, subHandlers);
         return this;
     }
 
     public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> maineventHandler,
                                                                     List<Class<? extends EventHandler<T>>> subeventHandler) {
         AbstractEventGroupHandler<T> orderEventGroupHandler = (AbstractEventGroupHandler<T>) createIfAbsentAtClass(maineventHandler);
-        orderEventGroupHandler.addSubHandlers(subeventHandler.stream().map(SpringContextUtils::getBean).collect(Collectors.toList()));
+        List<EventHandler<T>> subEventHandlers = subeventHandler.stream().map(SpringContextUtils::getBean).collect(Collectors.toList());
+        orderEventGroupHandler.addSubHandlers(subEventHandlers);
+        appendGroupHandlerRef(orderEventGroupHandler, subEventHandlers);
         return this;
     }
 
@@ -69,36 +75,38 @@ public class EventHandlerHolder<T extends Event> implements Iterable<EventHandle
                                                                     EventHandlerHolder<T> holder) {
         AbstractEventGroupHandler<T> orderEventGroupHandler = (AbstractEventGroupHandler<T>) createIfAbsentAtClass(maineventHandler);
         orderEventGroupHandler.addSubHandlers(holder.getEventHandlers());
+        appendGroupHandlerRef(orderEventGroupHandler, holder.getEventHandlers());
         return this;
     }
 
-    public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> mainEventHandler,
-                                                                    Class<? extends AbstractEventGroupHandler<T>> secondaryEventHandler,
-                                                                    List<Class<? extends EventHandler<T>>> subEventHandler) {
-        List<EventHandler<T>> subEventHandlers = createIfAbsentAtClass(mainEventHandler, secondaryEventHandler);
-
-        for (EventHandler<T> eventHandler : subEventHandlers) {
-            if (eventHandler.getClass().equals(secondaryEventHandler)) {
-                ((AbstractEventGroupHandler<T>) eventHandler).addSubHandlers(subEventHandler.stream().map(SpringContextUtils::getBean).collect(Collectors.toList()));
-                return this;
-            }
-        }
-        return this;
-    }
-
-    public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> mainEventHandler,
-                                                                    Class<? extends AbstractEventGroupHandler<T>> secondaryEventHandler,
-                                                                    EventHandlerHolder<T> holder) {
-        List<EventHandler<T>> subEventHandlers = createIfAbsentAtClass(mainEventHandler, secondaryEventHandler);
-
-        for (EventHandler<T> eventHandler : subEventHandlers) {
-            if (eventHandler.getClass().equals(secondaryEventHandler)) {
-                ((AbstractEventGroupHandler<T>) eventHandler).addSubHandlers(holder.getEventHandlers());
-                return this;
-            }
-        }
-        return this;
-    }
+    //层级太深 有需要在说吧
+//    public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> mainEventHandler,
+//                                                                    Class<? extends AbstractEventGroupHandler<T>> secondaryEventHandler,
+//                                                                    List<Class<? extends EventHandler<T>>> subEventHandler) {
+//        List<EventHandler<T>> subEventHandlers = createIfAbsentAtClass(mainEventHandler, secondaryEventHandler);
+//
+//        for (EventHandler<T> eventHandler : subEventHandlers) {
+//            if (eventHandler.getClass().equals(secondaryEventHandler)) {
+//                ((AbstractEventGroupHandler<T>) eventHandler).addSubHandlers(subEventHandler.stream().map(SpringContextUtils::getBean).collect(Collectors.toList()));
+//                return this;
+//            }
+//        }
+//        return this;
+//    }
+//
+//    public final synchronized EventHandlerHolder<T> addWithChildren(Class<? extends AbstractEventGroupHandler<T>> mainEventHandler,
+//                                                                    Class<? extends AbstractEventGroupHandler<T>> secondaryEventHandler,
+//                                                                    EventHandlerHolder<T> holder) {
+//        List<EventHandler<T>> subEventHandlers = createIfAbsentAtClass(mainEventHandler, secondaryEventHandler);
+//
+//        for (EventHandler<T> eventHandler : subEventHandlers) {
+//            if (eventHandler.getClass().equals(secondaryEventHandler)) {
+//                ((AbstractEventGroupHandler<T>) eventHandler).addSubHandlers(holder.getEventHandlers());
+//                return this;
+//            }
+//        }
+//        return this;
+//    }
 
 
     public synchronized EventHandlerHolder<T> addBefore(Class<? extends EventHandler<T>> eventHandler,
@@ -215,6 +223,13 @@ public class EventHandlerHolder<T extends Event> implements Iterable<EventHandle
     @Override
     public String toString() {
         return this.eventHandlers.toString();
+    }
+
+    protected void appendGroupHandlerRef(EventGroupHandler<T> mainHandler, List<EventHandler<T>> subHandlers) {
+        if (CollectionUtils.isEmpty(subHandlers)) return;
+        for (EventHandler<T> subHandler : subHandlers) {
+            groupRefMap.putIfAbsent(subHandler, mainHandler);
+        }
     }
 
 }
