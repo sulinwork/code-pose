@@ -21,7 +21,6 @@
         <module>spring-web-intensify</module>
         <module>event-framework</module>
         <module>xxl-spring-boot-start</module>
-        <module>es-standard</module>
         <module>event-framework-v2</module>
     </modules>
     <packaging>pom</packaging>
