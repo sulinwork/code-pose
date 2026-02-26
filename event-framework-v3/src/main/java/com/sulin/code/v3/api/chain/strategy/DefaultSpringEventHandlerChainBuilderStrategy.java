@@ -1,8 +1,9 @@
-package com.sulin.codepose.event.chain.strategy;
+package com.sulin.code.v3.api.chain.strategy;
 
-import com.sulin.codepose.event.Event;
-import com.sulin.codepose.event.annotation.HandlerChain;
-import com.sulin.codepose.event.chain.EventHandlerChain;
+
+import com.sulin.code.v3.api.Event;
+import com.sulin.code.v3.api.annotation.HandlerChain;
+import com.sulin.code.v3.api.chain.EventHandlerChain;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -25,14 +26,14 @@ public class DefaultSpringEventHandlerChainBuilderStrategy implements EventHandl
 
 
     @Override
-    public String bizCode() {
+    public String eventSource() {
         return "";
     }
 
     @Override
     public <T extends Event> EventHandlerChain<T> getChain(T event) {
-        Map<String, EventHandlerChain<?>> eventHandlerChainMap = eventType2HandlerChainMap.getOrDefault(event.getBizCode(), new HashMap<>());
-        return (EventHandlerChain<T>) eventHandlerChainMap.get(event.getEventType().name());
+        Map<String, EventHandlerChain<?>> eventHandlerChainMap = eventType2HandlerChainMap.getOrDefault(event.getSource(), new HashMap<>());
+        return (EventHandlerChain<T>) eventHandlerChainMap.get(event.getType());
     }
 
 
@@ -50,8 +51,8 @@ public class DefaultSpringEventHandlerChainBuilderStrategy implements EventHandl
             //继续获取eventType和实例
             if (type.isAssignableFrom(EventHandlerChain.class)) {
                 EventHandlerChain<?> eventHandlerChain = configurableListableBeanFactory.getBean(beanName, EventHandlerChain.class);
-                Map<String, EventHandlerChain<?>> stringEventHandlerChainMap = eventType2HandlerChainMap.computeIfAbsent(annotation.bizCode(), k -> new HashMap<>());
-                stringEventHandlerChainMap.put(eventHandlerChain.subscribeEventType().name(), eventHandlerChain);
+                Map<String, EventHandlerChain<?>> stringEventHandlerChainMap = eventType2HandlerChainMap.computeIfAbsent(annotation.eventSource(), k -> new HashMap<>());
+                stringEventHandlerChainMap.put(eventHandlerChain.subscribeEventType(), eventHandlerChain);
             } else {
                 //在一个class内做内部类
                 Class<?>[] innerClassList = type.getDeclaredClasses();
@@ -59,8 +60,8 @@ public class DefaultSpringEventHandlerChainBuilderStrategy implements EventHandl
                     //不是一个抽象类 并且是 基础 EventHandlerChain
                     if (!Modifier.isAbstract(innerClass.getModifiers()) && EventHandlerChain.class.isAssignableFrom(innerClass)) {
                         EventHandlerChain<?> eventHandlerChain = configurableListableBeanFactory.getBean(innerClass.getName(), EventHandlerChain.class);
-                        Map<String, EventHandlerChain<?>> stringEventHandlerChainMap = eventType2HandlerChainMap.computeIfAbsent(annotation.bizCode(), k -> new HashMap<>());
-                        stringEventHandlerChainMap.put(eventHandlerChain.subscribeEventType().name(), eventHandlerChain);
+                        Map<String, EventHandlerChain<?>> stringEventHandlerChainMap = eventType2HandlerChainMap.computeIfAbsent(annotation.eventSource(), k -> new HashMap<>());
+                        stringEventHandlerChainMap.put(eventHandlerChain.subscribeEventType(), eventHandlerChain);
                     }
                 }
             }

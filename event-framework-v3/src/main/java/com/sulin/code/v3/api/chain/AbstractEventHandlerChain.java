@@ -1,0 +1,128 @@
+package com.sulin.code.v3.api.chain;
+
+
+import com.sulin.code.v3.api.Event;
+import com.sulin.code.v3.api.EventHandlerInfo;
+import com.sulin.code.v3.api.enums.EventHandleResult;
+import com.sulin.code.v3.api.handler.EventGroupHandler;
+import com.sulin.code.v3.api.handler.EventHandler;
+import com.sulin.code.v3.api.repository.EventRepository;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
+
+import javax.annotation.Resource;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 事件处理链抽象类
+ */
+@Slf4j
+@Component
+public abstract class AbstractEventHandlerChain<T extends Event> implements EventHandlerChain<T>, InitializingBean {
+
+    @Resource
+    private EventRepository eventRepository;
+
+    // 事件处理者（不包括分组子处理者）
+    protected List<EventHandler<T>> eventHandlers = new ArrayList<>();
+
+    // 事件处理者（包括分组子处理者）
+    protected List<EventHandler<T>> allEventHandlers = new ArrayList<>();
+
+    @Getter
+    protected Map<EventHandler<T>, EventGroupHandler<T>> groupRefMap = new HashMap<>();
+
+    @Override
+    public void handle(T event) {
+        final EventChainContext context = buildContext();
+
+        // 遍历所有事件处理类（不包括分组子处理者）并进行处理
+        for (EventHandler<T> eventHandler : getEventHandlers()) {
+            //拿着chain上的handler和event需要执行的handler进行匹配
+            EventHandlerInfo handlerInfo = event.getEventHandlerInfo(eventHandler);
+            if (handlerInfo == null) {
+                // 事件重试时会出现该情况（因为只把没处理的处理者查出来执行）
+                continue;
+            }
+            try {
+                // 根据处理状态决定是否执行事件处理
+                if (handlerInfo.isNeedHandle() && handlerInfo.arrayExecuteTime()) {
+                    log.info("Handler {} handling, bizId: {}", eventHandler.getClass().getSimpleName(), event.getAggregateId());
+                    // 执行事件处理
+                    EventHandleResult result = eventHandler.handle(event, handlerInfo, context);
+                    context.addHandleResult(handlerInfo.getName(), result);
+                    handlerInfo.updateByHandleResult(result);
+                    // 更新本地事件状态
+
+                    eventRepository.updateEventHandleStatus(event, handlerInfo);
+                }
+            } catch (Exception e) {
+                log.error("Handler {} exception, bizId: {}", eventHandler.getClass().getSimpleName(), event.getAggregateId(), e);
+                // 更新本地事件异常状态
+                handlerInfo.updateByHandleException();
+                eventRepository.updateEventHandleStatus(event, handlerInfo);
+            }
+        }
+    }
+
+
+    /**
+     * 系统启动时执行，初始化事件处理者
+     */
+    @Override
+    public void afterPropertiesSet() {
+        EventHandlerHolder<T> holder = new EventHandlerHolder<>();
+        // 增加自定义处理者
+        appendHandlers(holder);
+        // 设置allOrderEventHandlerList
+        setAllHandlers(holder);
+        //初始化映射关系
+        this.groupRefMap = holder.getGroupRefMap();
+    }
+
+
+    /**
+     * 为处理链增加处理者，用于子类增加自定义处理者
+     */
+    protected void appendHandlers(EventHandlerHolder<T> sources) {
+    }
+
+    private void setAllHandlers(EventHandlerHolder<T> sources) {
+        eventHandlers.addAll(sources.getEventHandlers());
+        allEventHandlers.addAll(sources.getEventHandlers());
+        setGroupSubHandlerToAllHandlers(sources.getEventHandlers());
+    }
+
+    private void setGroupSubHandlerToAllHandlers(List<EventHandler<T>> handlers) {
+        for (EventHandler<T> eventHandler : handlers) {
+            if (eventHandler instanceof EventGroupHandler) {
+                List<EventHandler<T>> subHandlers = ((EventGroupHandler<T>) eventHandler).getSubEventHandlers();
+                if (!CollectionUtils.isEmpty(subHandlers)) {
+                    allEventHandlers.addAll(subHandlers);
+                    setGroupSubHandlerToAllHandlers(subHandlers);
+                }
+            }
+        }
+    }
+
+    protected EventChainContext buildContext() {
+        return new EventChainContext();
+    }
+
+    @Override
+    public List<EventHandler<T>> getEventHandlers() {
+        return eventHandlers;
+    }
+
+    @Override
+    public List<EventHandler<T>> getAllEventHandlers() {
+        return allEventHandlers;
+    }
+
+}

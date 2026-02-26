@@ -1,0 +1,35 @@
+package com.sulin.code.v3.api.chain;
+
+
+
+
+
+
+import com.sulin.code.v3.api.Event;
+import com.sulin.code.v3.api.handler.EventHandler;
+
+import java.util.List;
+
+/**
+ * 事件处理链，组装事件Handler处理事件信息
+ */
+public interface EventHandlerChain<T extends Event> {
+
+    String subscribeEventType();
+
+    /**
+     * 遍历订单事件Handler处理事件，处理完成更新本地事件表处理状态
+     */
+    void handle(T orderEvent);
+
+    /**
+     * 获取该处理链所有事件处理者（不包括分组子处理者）
+     */
+    List<EventHandler<T>> getEventHandlers();
+
+    /**
+     * 获取该处理链所有事件处理者（包括分组子处理者）
+     */
+    List<EventHandler<T>> getAllEventHandlers();
+
+}
