@@ -6,9 +6,14 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class MillisecondIncrSequence implements Sequence {
-    private static final long MAX_SEQUENCE = 9999; // 最大序列号限制
+    private final long MAX_SEQUENCE; // 最大序列号限制
     // 高32位存秒级时间戳，低32位存序列号
     private final AtomicLong state = new AtomicLong(0);
+
+
+    public MillisecondIncrSequence(int factor) {
+        MAX_SEQUENCE = (long) Math.pow(10, factor);
+    }
 
     @Override
     public String getSequence() {
