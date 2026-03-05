@@ -21,7 +21,7 @@ public class Random3SequenceTest {
         System.out.println("Buffer size: " + bufferSize + ", factor: " + factor);
         System.out.println("Expected unique IDs: " + (threadCount * idsPerThread));
 
-        Sequence sequence = new Random4Sequence(bufferSize, factor);
+        Sequence sequence = new RandomSequence(bufferSize, factor);
         Set<String> idSet = ConcurrentHashMap.newKeySet();
         AtomicInteger duplicateCount = new AtomicInteger(0);
         AtomicInteger successCount = new AtomicInteger(0);
