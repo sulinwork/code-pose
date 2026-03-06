@@ -4,18 +4,13 @@
 //import lombok.Getter;
 //import org.apache.commons.lang3.StringUtils;
 //
-//import java.util.Objects;
-//import java.util.concurrent.ArrayBlockingQueue;
-//import java.util.concurrent.ThreadLocalRandom;
-//import java.util.concurrent.ThreadPoolExecutor;
-//import java.util.concurrent.TimeUnit;
+//
+//import java.util.*;
+//import java.util.concurrent.*;
 //import java.util.concurrent.atomic.AtomicBoolean;
 //import java.util.concurrent.atomic.AtomicInteger;
 //
-///**
-// * 没问题
-// */
-//public class Random2Sequence implements Sequence {
+//public class RandomSequence implements Sequence {
 //
 //    private final ThreadPoolExecutor executors =
 //            new ThreadPoolExecutor(
@@ -36,7 +31,7 @@
 //
 //    private final AtomicBoolean switchBufferMark = new AtomicBoolean(false);
 //
-//    public Random2Sequence(int bufferSize, int factor) {
+//    public RandomSequence(int bufferSize, int factor) {
 //        this.bufferSize = bufferSize;
 //        this.factor = factor;
 //        this.maxRandomValue = (int) Math.pow(10, factor);
@@ -44,31 +39,50 @@
 //    }
 //
 //    @Override
-//    public synchronized String getSequence() {
+//    public String getSequence() {
 //        for (; ; ) {
-//            Integer poll = randomBuffer.poll();
-//            if (Objects.nonNull(poll)) {
-//                return randomBuffer.getNodeId() + StringUtils.leftPad(String.valueOf(poll), factor, "0");
+//            // 如果正在切换，快速失败重试
+//            if (switchBufferMark.get()) {
+//                Thread.yield();
+//                continue;
 //            }
-//            synchronized (this) {
-//                //double check
-//                poll = randomBuffer.poll();
-//                if (Objects.nonNull(poll)) {
-//                    return randomBuffer.getNodeId() + StringUtils.leftPad(String.valueOf(poll), factor, "0");
-//                }
-//                //没了 要切换了
-//                RandomBuffer old = randomBuffer;
-//                executors.execute(old::refresh);
-//                //在这里 old从1 变替换成了2 导致这里的next变成了3
-//                randomBuffer = old.nextBuffer;
+//            RandomBuffer buffer = randomBuffer;
+//            Integer element = buffer.poll();
+//            if (Objects.nonNull(element)) {
+//                return buffer.getNodeId() + StringUtils.leftPad(String.valueOf(element), factor, "0");
 //            }
+//            //切换buffer
+//            trySwitchBuffer();
 //        }
 //    }
 //
-//    @Override
-//    public void close() {
-//        executors.shutdown();
+//    private void waitSwitchBuffer() {
+//        //自旋等待
+//        while (switchBufferMark.get()) {
+//            Thread.yield();
+//        }
 //    }
+//
+//    private void trySwitchBuffer() {
+//        if (switchBufferMark.get()) {
+//            waitSwitchBuffer();
+//            return;
+//        }
+//        //cas 修改状态
+//        if (!switchBufferMark.compareAndSet(false, true)) {
+//            waitSwitchBuffer();
+//        } else {
+//            RandomBuffer oldBuffer = randomBuffer;
+//            randomBuffer = oldBuffer.nextBuffer;
+//            executors.execute(oldBuffer::refresh);
+//            if (randomBuffer.isEmpty()) {
+//                //切换到下一个buffer还是空 同步刷新吧
+//                randomBuffer.refresh();
+//            }
+//            switchBufferMark.set(false);
+//        }
+//    }
+//
 //
 //    private RandomBuffer initRandomBuffer() {
 //        RandomBuffer headBuffer = new RandomBuffer(maxRandomValue, 1);
@@ -81,6 +95,10 @@
 //        }
 //        current.nextBuffer = headBuffer;
 //        return headBuffer;
+//    }
+//
+//    public void close(){
+//        executors.shutdown();
 //    }
 //
 //
@@ -103,13 +121,21 @@
 //
 //        public void init() {
 //            int n = array.length;
+//
 //            // 初始化数组
 //            for (int i = 0; i < n; i++) {
 //                array[i] = i;
 //            }
+//
+//            index.set(n);
 //        }
 //
 //        public void refresh() {
+//            if (!isEmpty()) {
+//                //不用完不能刷新 洗牌后会出现相同的序号被使用
+//                return;
+//            }
+//
 //            int n = array.length;
 //            // 关键点：在这里获取当前线程的ThreadLocalRandom
 //            ThreadLocalRandom rnd = ThreadLocalRandom.current();

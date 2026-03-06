@@ -37,5 +37,14 @@
             <artifactId>guava</artifactId>
             <version>33.2.1-jre</version>
         </dependency>
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>6.5.5.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sulin.code.pose</groupId>
+            <artifactId>base-kit</artifactId>
+        </dependency>
     </dependencies>
 </project>

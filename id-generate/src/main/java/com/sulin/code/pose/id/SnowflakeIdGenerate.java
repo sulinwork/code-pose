@@ -12,25 +12,26 @@ public class SnowflakeIdGenerate implements IdGenerate {
 
     private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    private final long workerId;
-
-    private final int maxWorkerStrLen;
+    private final String workerId;
 
     private final Sequence sequence;
 
     public SnowflakeIdGenerate(WorkerIdHolder workerIdHolder, Sequence sequence) {
         this.workerId = workerIdHolder.getWorkerId();
         this.sequence = sequence;
-        this.maxWorkerStrLen = String.valueOf(workerIdHolder.getMaxWorkerId()).length();
     }
 
     @Override
     public String getId() {
         String time = LocalDateTime.now().format(dateTimeFormatter);
-        String workId = StringUtils.leftPad(String.valueOf(workerId), maxWorkerStrLen, "0");
         return time
-                + workId
+                + workerId
                 + sequence.getSequence();
 
+    }
+
+    @Override
+    public String getId(String prefix) {
+        return prefix + getId();
     }
 }

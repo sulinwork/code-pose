@@ -1,7 +1,7 @@
 package com.sulin.code.pose.id.api;
 
 public interface WorkerIdHolder {
-    long getWorkerId();
+    String getWorkerId();
 
-    long getMaxWorkerId();
+    default void close(){}
 }

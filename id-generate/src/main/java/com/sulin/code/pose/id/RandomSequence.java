@@ -4,85 +4,71 @@ import com.sulin.code.pose.id.api.Sequence;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
-
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Objects;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * 没问题
+ */
 public class RandomSequence implements Sequence {
 
     private final ThreadPoolExecutor executors =
             new ThreadPoolExecutor(
-                    2,
-                    2,
+                    1,
+                    1,
                     0L,
                     TimeUnit.MINUTES,
                     new ArrayBlockingQueue<>(5),
-                    new ThreadPoolExecutor.DiscardPolicy());
+                    new ThreadPoolExecutor.CallerRunsPolicy());
 
     private final int bufferSize;
 
     private final int maxRandomValue;
 
-    private volatile RandomBuffer randomBuffer;
+    private final AtomicReference<RandomBuffer> randomBufferRef;
 
     private final int factor;
 
-    private final AtomicBoolean switchBufferMark = new AtomicBoolean(false);
 
     public RandomSequence(int bufferSize, int factor) {
         this.bufferSize = bufferSize;
         this.factor = factor;
         this.maxRandomValue = (int) Math.pow(10, factor);
-        this.randomBuffer = initRandomBuffer();
+        this.randomBufferRef = new AtomicReference<>(initRandomBuffer());
     }
 
     @Override
     public String getSequence() {
         for (; ; ) {
-            // 如果正在切换，快速失败重试
-            if (switchBufferMark.get()) {
-                Thread.yield();
-                continue;
-            }
-            RandomBuffer buffer = randomBuffer;
-            Integer element = buffer.poll();
+            RandomBuffer curBuffer = randomBufferRef.get();
+
+            Integer element = curBuffer.poll();
             if (Objects.nonNull(element)) {
-                return buffer.getNodeId() + StringUtils.leftPad(String.valueOf(element), factor, "0");
+                if (randomBufferRef.compareAndSet(curBuffer, curBuffer)) {
+                    //cas判断下还是不是自己 可能被切换了 那么这个curBuffer拿到的poll元素 就可能重复
+                    return StringUtils.leftPad(String.valueOf(curBuffer.getNodeId()), String.valueOf(bufferSize).length(), "0")
+                            +
+                            StringUtils.leftPad(String.valueOf(element), factor, "0");
+                } else {
+                    continue;
+                }
             }
-            //切换buffer
-            trySwitchBuffer();
-        }
-    }
-
-    private void waitSwitchBuffer() {
-        //自旋等待
-        while (switchBufferMark.get()) {
-            Thread.yield();
-        }
-    }
-
-    private void trySwitchBuffer() {
-        if (switchBufferMark.get()) {
-            waitSwitchBuffer();
-            return;
-        }
-        //cas 修改状态
-        if (!switchBufferMark.compareAndSet(false, true)) {
-            waitSwitchBuffer();
-        } else {
-            RandomBuffer oldBuffer = randomBuffer;
-            randomBuffer = oldBuffer.nextBuffer;
-            executors.execute(oldBuffer::refresh);
-            if (randomBuffer.isEmpty()) {
-                //切换到下一个buffer还是空 同步刷新吧
-                randomBuffer.refresh();
+            //切换buff
+            if (randomBufferRef.compareAndSet(curBuffer, curBuffer.nextBuffer)) {
+                executors.execute(curBuffer::refresh);
             }
-            switchBufferMark.set(false);
         }
     }
 
+    @Override
+    public void close() {
+        executors.shutdown();
+    }
 
     private RandomBuffer initRandomBuffer() {
         RandomBuffer headBuffer = new RandomBuffer(maxRandomValue, 1);
@@ -95,10 +81,6 @@ public class RandomSequence implements Sequence {
         }
         current.nextBuffer = headBuffer;
         return headBuffer;
-    }
-
-    public void close(){
-        executors.shutdown();
     }
 
 
@@ -121,21 +103,13 @@ public class RandomSequence implements Sequence {
 
         public void init() {
             int n = array.length;
-
             // 初始化数组
             for (int i = 0; i < n; i++) {
                 array[i] = i;
             }
-
-            index.set(n);
         }
 
         public void refresh() {
-            if (!isEmpty()) {
-                //不用完不能刷新 洗牌后会出现相同的序号被使用
-                return;
-            }
-
             int n = array.length;
             // 关键点：在这里获取当前线程的ThreadLocalRandom
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
@@ -156,10 +130,6 @@ public class RandomSequence implements Sequence {
         public Integer poll() {
             int idx = index.getAndIncrement();
             return idx < array.length ? array[idx] : null;
-        }
-
-        public boolean isEmpty() {
-            return index.get() >= array.length;
         }
     }
 }
