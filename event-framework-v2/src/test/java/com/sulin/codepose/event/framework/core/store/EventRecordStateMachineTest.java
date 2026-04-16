@@ -19,38 +19,38 @@ class EventRecordStateMachineTest {
     void shouldTransitionToFinished() {
         HandlerExecutionRecord next = stateMachine.afterHandleResult(baseRecord(), EventHandleResult.FINISHED, retryPolicy(3));
 
-        assertEquals(ExecutionStatus.FINISHED, next.status());
-        assertEquals(Integer.valueOf(0), next.retryNum());
+        assertEquals(ExecutionStatus.FINISHED, next.getStatus());
+        assertEquals(Integer.valueOf(0), next.getRetryNum());
     }
 
     @Test
     void shouldRetryPendingFailure() {
         HandlerExecutionRecord next = stateMachine.afterHandleResult(baseRecord(), EventHandleResult.FAIL, retryPolicy(3));
 
-        assertEquals(ExecutionStatus.PENDING, next.status());
-        assertEquals(Integer.valueOf(1), next.retryNum());
+        assertEquals(ExecutionStatus.PENDING, next.getStatus());
+        assertEquals(Integer.valueOf(1), next.getRetryNum());
     }
 
     @Test
     void shouldAbortWhenRetryExceeded() {
         HandlerExecutionRecord next = stateMachine.afterHandleResult(baseRecord(3), EventHandleResult.FAIL, retryPolicy(3));
 
-        assertEquals(ExecutionStatus.ABORT, next.status());
-        assertEquals(Integer.valueOf(4), next.retryNum());
+        assertEquals(ExecutionStatus.ABORT, next.getStatus());
+        assertEquals(Integer.valueOf(4), next.getRetryNum());
     }
 
     @Test
     void shouldTransitionGroupedAbortStatus() {
         HandlerExecutionRecord next = stateMachine.afterGroupedSubHandlerAbort(baseRecord());
 
-        assertEquals(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT, next.status());
+        assertEquals(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT, next.getStatus());
     }
 
     private HandlerExecutionRecord baseRecord() {
         return baseRecord(0);
     }
 
-    private HandlerExecutionRecord baseRecord(int retryNum) {
+    private HandlerExecutionRecord baseRecord(int getRetryNum) {
         return new HandlerExecutionRecord(
                 1L,
                 "biz_1_created_1",
@@ -60,9 +60,8 @@ class EventRecordStateMachineTest {
                 "handler",
                 null,
                 "{}",
-                1,
                 ExecutionStatus.PENDING,
-                retryNum,
+                getRetryNum,
                 LocalDateTime.now(),
                 0L,
                 Instant.now(),

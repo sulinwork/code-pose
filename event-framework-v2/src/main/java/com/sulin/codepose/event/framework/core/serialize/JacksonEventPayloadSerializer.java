@@ -19,7 +19,7 @@ public class JacksonEventPayloadSerializer implements EventPayloadSerializer {
     }
 
     @Override
-    public <T> String serialize(T payload, Integer version) {
+    public <T> String serialize(T payload) {
         if (payload == null) {
             return null;
         }
@@ -31,7 +31,7 @@ public class JacksonEventPayloadSerializer implements EventPayloadSerializer {
     }
 
     @Override
-    public <T> T deserialize(String content, Class<T> payloadClass, Integer version) {
+    public <T> T deserialize(String content, Class<T> payloadClass) {
         if (content == null) {
             return null;
         }

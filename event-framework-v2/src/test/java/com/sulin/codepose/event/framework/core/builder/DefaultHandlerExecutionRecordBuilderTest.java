@@ -56,10 +56,10 @@ class DefaultHandlerExecutionRecordBuilderTest {
         List<HandlerExecutionRecord> records = builder.build(new TestEvent());
 
         assertEquals(4, records.size());
-        assertEquals(ExecutionStatus.PENDING, records.get(0).status());
-        assertNull(records.get(0).parentHandlerCode());
-        assertEquals("group", records.get(3).parentHandlerCode());
-        assertEquals(LocalDateTime.of(2026, 4, 15, 18, 0), records.get(1).executeTime());
+        assertEquals(ExecutionStatus.PENDING, records.get(0).getStatus());
+        assertNull(records.get(0).getParentHandlerCode());
+        assertEquals("group", records.get(3).getParentHandlerCode());
+        assertEquals(LocalDateTime.of(2026, 4, 15, 18, 0), records.get(1).getExecuteTime());
     }
 
     private static final class SingleChainRegistry implements EventHandlerChainRegistry {

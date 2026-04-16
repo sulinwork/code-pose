@@ -38,8 +38,8 @@ public class MybatisPlusEventStore implements EventStore {
             return;
         }
         for (HandlerExecutionRecord record : records) {
-            if (!Objects.equals(event.eventKey(), record.eventKey())) {
-                throw new IllegalArgumentException("Record eventKey does not match appended event");
+            if (!Objects.equals(event.eventKey(), record.getEventKey())) {
+                throw new IllegalArgumentException("Record getEventKey does not match appended event");
             }
             insertRecord(record);
         }
@@ -59,11 +59,11 @@ public class MybatisPlusEventStore implements EventStore {
                 .eq("id", recordId)
                 .eq("version", expectedVersion)
                 .eq("status", expectedStatus.name())
-                .set("status", nextRecord.status().name())
-                .set("retry_num", nextRecord.retryNum())
-                .set("execute_time", nextRecord.executeTime())
-                .set("version", nextRecord.version())
-                .set("updated_at", toStorageTime(nextRecord.updatedAt()));
+                .set("status", nextRecord.getStatus().name())
+                .set("retry_num", nextRecord.getRetryNum())
+                .set("execute_time", nextRecord.getExecuteTime())
+                .set("version", nextRecord.getVersion())
+                .set("updated_at", toStorageTime(nextRecord.getUpdatedAt()));
         return mapper.update(null, update) == 1;
     }
 
@@ -94,9 +94,9 @@ public class MybatisPlusEventStore implements EventStore {
     }
 
     @Override
-    public List<HandlerExecutionRecord> loadByEventKey(String eventKey) {
+    public List<HandlerExecutionRecord> loadByEventKey(String getEventKey) {
         QueryWrapper<DomainEventRecordEntity> query = new QueryWrapper<DomainEventRecordEntity>()
-                .eq("event_key", eventKey)
+                .eq("event_key", getEventKey)
                 .orderByAsc("id");
         return toRecords(mapper.selectList(query));
     }
@@ -116,13 +116,13 @@ public class MybatisPlusEventStore implements EventStore {
             throw ex;
         }
         if (entity.getId() == null) {
-            throw new IllegalStateException("Failed to generate record id for eventKey=" + record.eventKey());
+            throw new IllegalStateException("Failed to generate record id for getEventKey=" + record.getEventKey());
         }
     }
 
     private IllegalStateException duplicateRecordException(HandlerExecutionRecord record, Exception ex) {
         return new IllegalStateException(
-                "Duplicate handler record for eventKey=" + record.eventKey() + ", handlerCode=" + record.handlerCode(),
+                "Duplicate handler record for getEventKey=" + record.getEventKey() + ", handlerCode=" + record.getHandlerCode(),
                 ex
         );
     }

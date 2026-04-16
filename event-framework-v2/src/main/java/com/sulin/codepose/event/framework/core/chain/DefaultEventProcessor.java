@@ -29,13 +29,7 @@ public class DefaultEventProcessor {
     private final RetryPolicy retryPolicy;
     private final EventRecordStateMachine stateMachine;
 
-    public DefaultEventProcessor(
-            EventHandlerChainRegistry chainRegistry,
-            EventPayloadSerializer payloadSerializer,
-            EventStore eventStore,
-            RetryPolicy retryPolicy,
-            EventRecordStateMachine stateMachine
-    ) {
+    public DefaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventPayloadSerializer payloadSerializer, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
         this.chainRegistry = chainRegistry;
         this.payloadSerializer = payloadSerializer;
         this.eventStore = eventStore;
@@ -67,12 +61,7 @@ public class DefaultEventProcessor {
         }
     }
 
-    private void processHandler(
-            DomainEventHandler<?> handler,
-            DomainEvent event,
-            Map<String, HandlerExecutionRecord> recordsByHandlerCode,
-            EventExecutionContext context
-    ) {
+    private void processHandler(DomainEventHandler<?> handler, DomainEvent event, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         HandlerExecutionRecord record = recordsByHandlerCode.get(handler.handlerCode());
         if (record == null) {
             return;
@@ -84,30 +73,16 @@ public class DefaultEventProcessor {
         processSingleHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
-    private void processSingleHandler(
-            DomainEventHandler<?> handler,
-            DomainEvent event,
-            HandlerExecutionRecord record,
-            Map<String, HandlerExecutionRecord> recordsByHandlerCode,
-            EventExecutionContext context
-    ) {
+    private void processSingleHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         executeHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
-    private void processGroupedHandler(
-            GroupedEventHandler<?> handler,
-            DomainEvent event,
-            HandlerExecutionRecord record,
-            Map<String, HandlerExecutionRecord> recordsByHandlerCode,
-            EventExecutionContext context
-    ) {
-        if (record.status() == ExecutionStatus.GROUP_MAIN_FINISHED) {
+    private void processGroupedHandler(GroupedEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+        if (record.getStatus() == ExecutionStatus.GROUP_MAIN_FINISHED) {
             runSubHandlers(handler, event, record, recordsByHandlerCode, context);
             return;
         }
-        if (record.status() == ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT
-                || record.status() == ExecutionStatus.FINISHED
-                || record.status() == ExecutionStatus.ABORT) {
+        if (record.getStatus() == ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT || record.getStatus() == ExecutionStatus.FINISHED || record.getStatus() == ExecutionStatus.ABORT) {
             return;
         }
         EventHandleResult result = executeHandler(handler, event, record, recordsByHandlerCode, context);
@@ -119,13 +94,7 @@ public class DefaultEventProcessor {
         }
     }
 
-    private void runSubHandlers(
-            GroupedEventHandler<?> handler,
-            DomainEvent event,
-            HandlerExecutionRecord parentRecord,
-            Map<String, HandlerExecutionRecord> recordsByHandlerCode,
-            EventExecutionContext context
-    ) {
+    private void runSubHandlers(GroupedEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord parentRecord, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         for (DomainEventHandler<?> subHandler : handler.subHandlers()) {
             HandlerExecutionRecord subRecord = recordsByHandlerCode.get(subHandler.handlerCode());
             if (subRecord == null) {
@@ -138,7 +107,7 @@ public class DefaultEventProcessor {
             if (subResult == EventHandleResult.ABORT || subResult == EventHandleResult.GROUP_MAIN_FINISHED_SUB_ABORT) {
                 HandlerExecutionRecord nextParent = stateMachine.afterGroupedSubHandlerAbort(parentRecord);
                 persistTransition(parentRecord, nextParent);
-                recordsByHandlerCode.put(parentRecord.handlerCode(), nextParent);
+                recordsByHandlerCode.put(parentRecord.getHandlerCode(), nextParent);
                 return;
             }
             if (subResult == EventHandleResult.FAIL) {
@@ -147,13 +116,7 @@ public class DefaultEventProcessor {
         }
     }
 
-    private EventHandleResult executeHandler(
-            DomainEventHandler<?> handler,
-            DomainEvent event,
-            HandlerExecutionRecord record,
-            Map<String, HandlerExecutionRecord> recordsByHandlerCode,
-            EventExecutionContext context
-    ) {
+    private EventHandleResult executeHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         if (!stateMachine.isRunnable(record)) {
             return null;
         }
@@ -182,44 +145,29 @@ public class DefaultEventProcessor {
     }
 
     private HandlerExecutionRecord moveToProcessing(HandlerExecutionRecord record) {
-        if (record.status() != ExecutionStatus.PENDING) {
+        if (record.getStatus() != ExecutionStatus.PENDING) {
             return record;
         }
         HandlerExecutionRecord processingRecord = stateMachine.toProcessing(record);
-        boolean updated = eventStore.compareAndSet(
-                record.id(),
-                record.version(),
-                record.status(),
-                processingRecord
-        );
+        boolean updated = eventStore.compareAndSet(record.getId(), record.getVersion(), record.getStatus(), processingRecord);
         return updated ? processingRecord : null;
     }
 
     private void persistTransition(HandlerExecutionRecord currentRecord, HandlerExecutionRecord nextRecord) {
-        eventStore.compareAndSet(
-                currentRecord.id(),
-                currentRecord.version(),
-                currentRecord.status(),
-                nextRecord
-        );
+        eventStore.compareAndSet(currentRecord.getId(), currentRecord.getVersion(), currentRecord.getStatus(), nextRecord);
     }
 
     @SuppressWarnings("unchecked")
-    private <P> EventHandleResult invokeHandler(
-            DomainEventHandler<?> handler,
-            DomainEvent event,
-            HandlerExecutionRecord record,
-            EventExecutionContext context
-    ) {
+    private <P> EventHandleResult invokeHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, EventExecutionContext context) {
         DomainEventHandler<P> typedHandler = (DomainEventHandler<P>) handler;
-        P payload = payloadSerializer.deserialize(record.payload(), typedHandler.payloadClass(), record.payloadVersion());
-        return typedHandler.handle(event, payload, record, context);
+        P getPayload = payloadSerializer.deserialize(record.getPayload(), typedHandler.payloadClass());
+        return typedHandler.handle(event, getPayload, record, context);
     }
 
     private Map<String, HandlerExecutionRecord> indexByHandlerCode(List<HandlerExecutionRecord> records) {
         Map<String, HandlerExecutionRecord> indexed = new LinkedHashMap<String, HandlerExecutionRecord>();
         for (HandlerExecutionRecord record : records) {
-            indexed.put(record.handlerCode(), record);
+            indexed.put(record.getHandlerCode(), record);
         }
         return indexed;
     }

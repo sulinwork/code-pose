@@ -59,9 +59,9 @@ class MybatisPlusEventStoreIntegrationTest {
 
         List<HandlerExecutionRecord> loaded = eventStore.loadByEventKey(event.eventKey());
         assertEquals(2, loaded.size());
-        assertTrue(loaded.get(0).id() < loaded.get(1).id());
-        assertEquals("main", loaded.get(0).handlerCode());
-        assertEquals("sub", loaded.get(1).handlerCode());
+        assertTrue(loaded.get(0).getId() < loaded.get(1).getId());
+        assertEquals("main", loaded.get(0).getHandlerCode());
+        assertEquals("sub", loaded.get(1).getHandlerCode());
     }
 
     @Test
@@ -82,15 +82,15 @@ class MybatisPlusEventStoreIntegrationTest {
         HandlerExecutionRecord current = eventStore.loadByEventKey(event.eventKey()).get(0);
         HandlerExecutionRecord processing = current.withState(
                 ExecutionStatus.PROCESSING,
-                current.retryNum(),
-                current.executeTime(),
-                current.version() + 1,
+                current.getRetryNum(),
+                current.getExecuteTime(),
+                current.getVersion() + 1,
                 Instant.parse("2026-04-16T10:10:00Z")
         );
 
-        assertTrue(eventStore.compareAndSet(current.id(), current.version(), current.status(), processing));
-        assertFalse(eventStore.compareAndSet(current.id(), current.version(), current.status(), processing));
-        assertEquals(ExecutionStatus.PROCESSING, eventStore.loadByEventKey(event.eventKey()).get(0).status());
+        assertTrue(eventStore.compareAndSet(current.getId(), current.getVersion(), current.getStatus(), processing));
+        assertFalse(eventStore.compareAndSet(current.getId(), current.getVersion(), current.getStatus(), processing));
+        assertEquals(ExecutionStatus.PROCESSING, eventStore.loadByEventKey(event.eventKey()).get(0).getStatus());
     }
 
     @Test
@@ -111,8 +111,8 @@ class MybatisPlusEventStoreIntegrationTest {
         ));
 
         assertEquals(2, scanned.size());
-        assertEquals("event_1", scanned.get(0).eventKey());
-        assertEquals("event_2", scanned.get(1).eventKey());
+        assertEquals("event_1", scanned.get(0).getEventKey());
+        assertEquals("event_2", scanned.get(1).getEventKey());
     }
 
     private org.apache.ibatis.session.SqlSessionFactory buildSqlSessionFactory(DataSource dataSource) throws Exception {
@@ -142,29 +142,28 @@ class MybatisPlusEventStoreIntegrationTest {
     }
 
     private HandlerExecutionRecord record(
-            Long id,
-            String eventKey,
-            String handlerCode,
-            ExecutionStatus status,
-            int retryNum,
-            LocalDateTime executeTime,
-            long version
+            Long getId,
+            String getEventKey,
+            String getHandlerCode,
+            ExecutionStatus getStatus,
+            int getRetryNum,
+            LocalDateTime getExecuteTime,
+            long getVersion
     ) {
         Instant createdAt = Instant.parse("2026-04-16T10:00:00Z");
         return new HandlerExecutionRecord(
-                id,
-                eventKey,
+                getId,
+                getEventKey,
                 "order",
                 1L,
                 "paid",
-                handlerCode,
+                getHandlerCode,
                 null,
                 "{}",
-                1,
-                status,
-                retryNum,
-                executeTime,
-                version,
+                getStatus,
+                getRetryNum,
+                getExecuteTime,
+                getVersion,
                 createdAt,
                 createdAt
         );
@@ -172,10 +171,10 @@ class MybatisPlusEventStoreIntegrationTest {
 
     static class TestEvent implements DomainEvent {
 
-        private final String eventKey;
+        private final String getEventKey;
 
-        TestEvent(String eventKey) {
-            this.eventKey = eventKey;
+        TestEvent(String getEventKey) {
+            this.getEventKey = getEventKey;
         }
 
         @Override
@@ -195,8 +194,10 @@ class MybatisPlusEventStoreIntegrationTest {
 
         @Override
         public String eventKey() {
-            return eventKey;
+            return getEventKey;
         }
+
+
 
         @Override
         public Instant occurredAt() {

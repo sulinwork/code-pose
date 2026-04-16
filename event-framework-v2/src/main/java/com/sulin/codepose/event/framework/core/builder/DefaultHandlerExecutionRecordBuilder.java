@@ -19,8 +19,6 @@ import java.util.Optional;
 
 public class DefaultHandlerExecutionRecordBuilder {
 
-    private static final int DEFAULT_PAYLOAD_VERSION = 1;
-
     private final EventHandlerChainRegistry chainRegistry;
     private final EventPayloadSerializer payloadSerializer;
 
@@ -67,8 +65,7 @@ public class DefaultHandlerExecutionRecordBuilder {
                 event.eventType(),
                 handler.handlerCode(),
                 parentHandlerCode,
-                payloadSerializer.serialize(payload.get(), DEFAULT_PAYLOAD_VERSION),
-                DEFAULT_PAYLOAD_VERSION,
+                payloadSerializer.serialize(payload.get()),
                 ExecutionStatus.PENDING,
                 0,
                 executeTime,

@@ -37,7 +37,7 @@ public class DefaultEventReplayCoordinator {
         }
         Set<String> eventKeys = new LinkedHashSet<String>();
         for (HandlerExecutionRecord scannedRecord : scannedRecords) {
-            eventKeys.add(scannedRecord.eventKey());
+            eventKeys.add(scannedRecord.getEventKey());
         }
         for (String eventKey : eventKeys) {
             List<HandlerExecutionRecord> records = eventStore.loadByEventKey(eventKey);
@@ -46,11 +46,11 @@ public class DefaultEventReplayCoordinator {
             }
             HandlerExecutionRecord first = records.get(0);
             DomainEvent replayEvent = new ReplayDomainEvent(
-                    first.bizCode(),
-                    first.bizId(),
-                    first.eventType(),
-                    first.eventKey(),
-                    first.createdAt(),
+                    first.getBizCode(),
+                    first.getBizId(),
+                    first.getEventType(),
+                    first.getEventKey(),
+                    first.getCreatedAt(),
                     records
             );
             eventProcessor.process(replayEvent, records);
@@ -79,7 +79,7 @@ public class DefaultEventReplayCoordinator {
             this.eventType = eventType;
             this.eventKey = eventKey;
             this.occurredAt = occurredAt == null ? Instant.now() : occurredAt;
-            this.records = Collections.unmodifiableList(new ArrayList<HandlerExecutionRecord>(records));
+            this.records = Collections.unmodifiableList(new ArrayList<>(records));
         }
 
         @Override

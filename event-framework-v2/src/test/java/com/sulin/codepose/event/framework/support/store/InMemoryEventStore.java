@@ -34,20 +34,20 @@ public class InMemoryEventStore implements EventStore {
         List<Long> eventRecordIds = recordIdsByEventKey.computeIfAbsent(event.eventKey(), key -> new ArrayList<Long>());
         Set<String> handlerCodes = handlerCodesByEventKey.computeIfAbsent(event.eventKey(), key -> new LinkedHashSet<String>());
         for (HandlerExecutionRecord record : records) {
-            if (!Objects.equals(event.eventKey(), record.eventKey())) {
+            if (!Objects.equals(event.eventKey(), record.getEventKey())) {
                 throw new IllegalArgumentException("Record eventKey does not match appended event");
             }
-            if (!handlerCodes.add(record.handlerCode())) {
+            if (!handlerCodes.add(record.getHandlerCode())) {
                 throw new IllegalStateException("Duplicate handler record for eventKey="
                         + event.eventKey()
                         + ", handlerCode="
-                        + record.handlerCode());
+                        + record.getHandlerCode());
             }
-            HandlerExecutionRecord persistedRecord = record.id() == null
+            HandlerExecutionRecord persistedRecord = record.getId() == null
                     ? record.withId(recordIdSequence.getAndIncrement())
                     : record;
-            recordsById.put(persistedRecord.id(), persistedRecord);
-            eventRecordIds.add(persistedRecord.id());
+            recordsById.put(persistedRecord.getId(), persistedRecord);
+            eventRecordIds.add(persistedRecord.getId());
         }
     }
 
@@ -65,10 +65,10 @@ public class InMemoryEventStore implements EventStore {
         if (currentRecord == null) {
             return false;
         }
-        if (!Objects.equals(currentRecord.version(), expectedVersion) || currentRecord.status() != expectedStatus) {
+        if (!Objects.equals(currentRecord.getVersion(), expectedVersion) || currentRecord.getStatus() != expectedStatus) {
             return false;
         }
-        HandlerExecutionRecord persistedRecord = nextRecord.id() == null ? nextRecord.withId(recordId) : nextRecord;
+        HandlerExecutionRecord persistedRecord = nextRecord.getId() == null ? nextRecord.withId(recordId) : nextRecord;
         recordsById.put(recordId, persistedRecord);
         return true;
     }
@@ -77,16 +77,16 @@ public class InMemoryEventStore implements EventStore {
     public synchronized List<HandlerExecutionRecord> scanRetryable(ReplayScanRequest request) {
         List<HandlerExecutionRecord> matched = new ArrayList<HandlerExecutionRecord>();
         for (HandlerExecutionRecord record : recordsById.values()) {
-            if (!isRetryableStatus(record.status())) {
+            if (!isRetryableStatus(record.getStatus())) {
                 continue;
             }
             if (!matchesBizCodes(record, request.bizCodes())) {
                 continue;
             }
-            if (request.lastId() != null && record.id() != null && record.id() <= request.lastId()) {
+            if (request.lastId() != null && record.getId() != null && record.getId() <= request.lastId()) {
                 continue;
             }
-            if (request.maxRetryNum() != null && record.retryNum() != null && record.retryNum() > request.maxRetryNum()) {
+            if (request.maxRetryNum() != null && record.getRetryNum() != null && record.getRetryNum() > request.maxRetryNum()) {
                 continue;
             }
             if (!matchesCreatedBefore(record, request.createdBefore())) {
@@ -119,28 +119,28 @@ public class InMemoryEventStore implements EventStore {
         return Collections.unmodifiableList(records);
     }
 
-    private boolean isRetryableStatus(ExecutionStatus status) {
-        return status == ExecutionStatus.PENDING
-                || status == ExecutionStatus.PROCESSING
-                || status == ExecutionStatus.GROUP_MAIN_FINISHED
-                || status == ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT;
+    private boolean isRetryableStatus(ExecutionStatus getStatus) {
+        return getStatus == ExecutionStatus.PENDING
+                || getStatus == ExecutionStatus.PROCESSING
+                || getStatus == ExecutionStatus.GROUP_MAIN_FINISHED
+                || getStatus == ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT;
     }
 
     private boolean matchesBizCodes(HandlerExecutionRecord record, List<String> bizCodes) {
-        return bizCodes == null || bizCodes.isEmpty() || bizCodes.contains(record.bizCode());
+        return bizCodes == null || bizCodes.isEmpty() || bizCodes.contains(record.getBizCode());
     }
 
     private boolean matchesCreatedBefore(HandlerExecutionRecord record, Instant createdBefore) {
         return createdBefore == null
-                || record.createdAt() == null
-                || !record.createdAt().isAfter(createdBefore);
+                || record.getCreatedAt() == null
+                || !record.getCreatedAt().isAfter(createdBefore);
     }
 
     private boolean matchesExecuteBefore(HandlerExecutionRecord record, Instant executeBefore) {
-        if (executeBefore == null || record.executeTime() == null) {
+        if (executeBefore == null || record.getExecuteTime() == null) {
             return true;
         }
         LocalDateTime threshold = LocalDateTime.ofInstant(executeBefore, ZoneId.systemDefault());
-        return !record.executeTime().isAfter(threshold);
+        return !record.getExecuteTime().isAfter(threshold);
     }
 }

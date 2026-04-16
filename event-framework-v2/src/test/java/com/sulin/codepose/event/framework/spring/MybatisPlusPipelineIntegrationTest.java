@@ -65,7 +65,7 @@ class MybatisPlusPipelineIntegrationTest {
             assertEquals(1, TestConfiguration.COUNT.get());
             List<HandlerExecutionRecord> persistedRecords = eventStore.loadByEventKey(event.eventKey());
             assertEquals(1, persistedRecords.size());
-            assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).status());
+            assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).getStatus());
         } finally {
             context.close();
         }
@@ -96,7 +96,7 @@ class MybatisPlusPipelineIntegrationTest {
             ));
 
             assertEquals(1, TestConfiguration.COUNT.get());
-            assertEquals(ExecutionStatus.FINISHED, eventStore.loadByEventKey(event.eventKey()).get(0).status());
+            assertEquals(ExecutionStatus.FINISHED, eventStore.loadByEventKey(event.eventKey()).get(0).getStatus());
         } finally {
             context.close();
         }

@@ -11,10 +11,10 @@ public interface RetryPolicy {
     LocalDateTime nextExecuteTime(HandlerExecutionRecord record);
 
     default boolean canRetry(HandlerExecutionRecord record) {
-        return record.retryNum() < maxRetryCount(
-                record.bizCode(),
-                record.eventType(),
-                record.handlerCode()
+        return record.getRetryNum() < maxRetryCount(
+                record.getBizCode(),
+                record.getEventType(),
+                record.getHandlerCode()
         );
     }
 }

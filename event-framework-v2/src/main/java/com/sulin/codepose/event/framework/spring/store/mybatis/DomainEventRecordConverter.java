@@ -16,21 +16,20 @@ final class DomainEventRecordConverter {
 
     static DomainEventRecordEntity toEntity(HandlerExecutionRecord record) {
         DomainEventRecordEntity entity = new DomainEventRecordEntity();
-        entity.setId(record.id());
-        entity.setEventKey(record.eventKey());
-        entity.setBizCode(record.bizCode());
-        entity.setBizId(record.bizId());
-        entity.setEventType(record.eventType());
-        entity.setHandlerCode(record.handlerCode());
-        entity.setParentHandlerCode(record.parentHandlerCode());
-        entity.setPayload(record.payload());
-        entity.setPayloadVersion(record.payloadVersion());
-        entity.setStatus(record.status().name());
-        entity.setRetryNum(record.retryNum());
-        entity.setExecuteTime(record.executeTime());
-        entity.setVersion(record.version());
-        entity.setCreatedAt(toLocalDateTime(record.createdAt()));
-        entity.setUpdatedAt(toLocalDateTime(record.updatedAt()));
+        entity.setId(record.getId());
+        entity.setEventKey(record.getEventKey());
+        entity.setBizCode(record.getBizCode());
+        entity.setBizId(record.getBizId());
+        entity.setEventType(record.getEventType());
+        entity.setHandlerCode(record.getHandlerCode());
+        entity.setParentHandlerCode(record.getParentHandlerCode());
+        entity.setPayload(record.getPayload());
+        entity.setStatus(record.getStatus().name());
+        entity.setRetryNum(record.getRetryNum());
+        entity.setExecuteTime(record.getExecuteTime());
+        entity.setVersion(record.getVersion());
+        entity.setCreatedAt(toLocalDateTime(record.getCreatedAt()));
+        entity.setUpdatedAt(toLocalDateTime(record.getUpdatedAt()));
         return entity;
     }
 
@@ -44,7 +43,6 @@ final class DomainEventRecordConverter {
                 entity.getHandlerCode(),
                 entity.getParentHandlerCode(),
                 entity.getPayload(),
-                entity.getPayloadVersion(),
                 ExecutionStatus.valueOf(entity.getStatus()),
                 entity.getRetryNum(),
                 entity.getExecuteTime(),

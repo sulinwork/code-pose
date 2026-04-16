@@ -56,7 +56,7 @@ class InMemoryPipelineIntegrationTest {
             assertEquals(1, handler.invocationCount.get());
             List<HandlerExecutionRecord> persistedRecords = eventStore.loadByEventKey(event.eventKey());
             assertEquals(1, persistedRecords.size());
-            assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).status());
+            assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).getStatus());
         } finally {
             context.close();
         }

@@ -45,7 +45,7 @@ class DefaultEventProcessorTest {
         )));
 
         assertEquals(2, store.transitions.size());
-        assertEquals(ExecutionStatus.FINISHED, store.transitions.get(1).status());
+        assertEquals(ExecutionStatus.FINISHED, store.transitions.get(1).getStatus());
     }
 
     @Test
@@ -62,8 +62,8 @@ class DefaultEventProcessorTest {
         processor.process(new TestEvent(records(record(1L, "fail", ExecutionStatus.PENDING, 0, null))));
 
         assertEquals(2, store.transitions.size());
-        assertEquals(ExecutionStatus.PENDING, store.transitions.get(1).status());
-        assertEquals(Integer.valueOf(1), store.transitions.get(1).retryNum());
+        assertEquals(ExecutionStatus.PENDING, store.transitions.get(1).getStatus());
+        assertEquals(Integer.valueOf(1), store.transitions.get(1).getRetryNum());
     }
 
     @Test
@@ -83,7 +83,7 @@ class DefaultEventProcessorTest {
         )));
 
         assertEquals(5, store.transitions.size());
-        assertEquals(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT, store.transitions.get(4).status());
+        assertEquals(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT, store.transitions.get(4).getStatus());
     }
 
     private RetryPolicy retryPolicy(final int maxRetryCount) {
@@ -114,7 +114,6 @@ class DefaultEventProcessorTest {
                 handlerCode,
                 handlerCode.equals("group-sub") ? "group" : null,
                 "{}",
-                1,
                 status,
                 retryNum,
                 executeTime,
@@ -240,12 +239,12 @@ class DefaultEventProcessorTest {
     private static final class SimplePayloadSerializer implements com.sulin.codepose.event.framework.api.serialize.EventPayloadSerializer {
 
         @Override
-        public <T> String serialize(T payload, Integer version) {
+        public <T> String serialize(T payload) {
             return "{}";
         }
 
         @Override
-        public <T> T deserialize(String content, Class<T> payloadClass, Integer version) {
+        public <T> T deserialize(String content, Class<T> payloadClass) {
             try {
                 return payloadClass.getDeclaredConstructor().newInstance();
             } catch (Exception ex) {
