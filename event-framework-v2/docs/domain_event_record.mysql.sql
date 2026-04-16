@@ -1,0 +1,21 @@
+create table if not exists domain_event_record (
+    id bigint not null auto_increment,
+    event_key varchar(255) not null,
+    biz_code varchar(128) not null,
+    biz_id bigint null,
+    event_type varchar(128) not null,
+    handler_code varchar(128) not null,
+    parent_handler_code varchar(128) null,
+    payload longtext not null,
+    payload_version int not null,
+    status varchar(64) not null,
+    retry_num int not null,
+    execute_time timestamp null default null,
+    version bigint not null,
+    created_at timestamp not null,
+    updated_at timestamp not null,
+    primary key (id),
+    unique key uk_domain_event_record_event_handler (event_key, handler_code),
+    key idx_domain_event_record_status_execute_id (status, execute_time, id),
+    key idx_domain_event_record_event_key_id (event_key, id)
+) engine=InnoDB default charset=utf8mb4;
