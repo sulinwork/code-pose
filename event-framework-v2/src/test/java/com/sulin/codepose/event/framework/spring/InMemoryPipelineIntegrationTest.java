@@ -13,6 +13,7 @@ import com.sulin.codepose.event.framework.api.store.EventStore;
 import com.sulin.codepose.event.framework.core.builder.DefaultHandlerExecutionRecordBuilder;
 import com.sulin.codepose.event.framework.spring.config.DomainEventFrameworkAutoConfiguration;
 import com.sulin.codepose.event.framework.support.store.InMemoryEventStore;
+import lombok.Data;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -23,7 +24,6 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -54,11 +54,38 @@ class InMemoryPipelineIntegrationTest {
             transactionManager.commit(transaction);
 
             assertEquals(1, handler.invocationCount.get());
-            List<HandlerExecutionRecord> persistedRecords = eventStore.loadByEventKey(event.eventKey());
+            List<HandlerExecutionRecord> persistedRecords = eventStore.loadByEventKey(event.getEventKey());
             assertEquals(1, persistedRecords.size());
             assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).getStatus());
         } finally {
             context.close();
+        }
+    }
+
+    @Data
+    static class OrderPaidEvent implements DomainEvent {
+        private String bizCode;
+        private Long bizId;
+        private String eventType;
+        private String eventKey;
+    }
+
+    @Data
+    static class TestPayload implements EventPayload {
+        private String value;
+
+    }
+
+
+    static class OrderPaidNotifyHandler implements DomainEventHandler<OrderPaidEvent> {
+        @Override
+        public String handlerCode() {
+            return "counting";
+        }
+
+        @Override
+        public EventHandleResult handle(OrderPaidEvent event, HandlerExecutionRecord record, EventExecutionContext context) {
+            return EventHandleResult.FINISHED;
         }
     }
 
@@ -67,12 +94,17 @@ class InMemoryPipelineIntegrationTest {
 
         @Bean
         EventStore eventStore() {
-            return new InMemoryEventStore();
+            return null;
         }
 
         @Bean
-        EventHandlerChain countingChain(CountingHandler handler) {
-            return new EventHandlerChain() {
+        OrderPaidNotifyHandler countingHandler() {
+            return new OrderPaidNotifyHandler();
+        }
+
+        @Bean
+        EventHandlerChain<OrderPaidEvent> countingChain() {
+            return new EventHandlerChain<OrderPaidEvent>() {
                 @Override
                 public String bizCode() {
                     return "order";
@@ -84,16 +116,13 @@ class InMemoryPipelineIntegrationTest {
                 }
 
                 @Override
-                public List<DomainEventHandler<?>> handlers() {
-                    return Collections.<DomainEventHandler<?>>singletonList(handler);
+                public List<DomainEventHandler<OrderPaidEvent>> handlers() {
+
                 }
             };
         }
 
-        @Bean
-        CountingHandler countingHandler() {
-            return new CountingHandler();
-        }
+
 
         @Bean
         PlatformTransactionManager platformTransactionManager() {
@@ -101,84 +130,11 @@ class InMemoryPipelineIntegrationTest {
         }
     }
 
-    static class CountingHandler implements DomainEventHandler<TestPayload> {
 
-        private final AtomicInteger invocationCount = new AtomicInteger();
 
-        @Override
-        public String handlerCode() {
-            return "counting";
-        }
 
-        @Override
-        public Class<TestPayload> payloadClass() {
-            return TestPayload.class;
-        }
 
-        @Override
-        public Optional<TestPayload> buildPayload(DomainEvent event) {
-            return Optional.of(new TestPayload("payload"));
-        }
 
-        @Override
-        public EventHandleResult handle(
-                DomainEvent event,
-                TestPayload payload,
-                HandlerExecutionRecord record,
-                EventExecutionContext context) {
-            invocationCount.incrementAndGet();
-            return EventHandleResult.FINISHED;
-        }
-    }
-
-    static class OrderPaidEvent implements DomainEvent {
-
-        @Override
-        public String bizCode() {
-            return "order";
-        }
-
-        @Override
-        public Long bizId() {
-            return 1L;
-        }
-
-        @Override
-        public String eventType() {
-            return "paid";
-        }
-
-        @Override
-        public String eventKey() {
-            return "order_1_paid";
-        }
-
-        @Override
-        public Instant occurredAt() {
-            return Instant.parse("2026-04-15T10:00:00Z");
-        }
-
-        @Override
-        public List<EventPayload> payloads() {
-            return Collections.singletonList(new TestPayload("payload"));
-        }
-    }
-
-    static class TestPayload implements EventPayload {
-
-        private String value;
-
-        public TestPayload() {
-        }
-
-        TestPayload(String value) {
-            this.value = value;
-        }
-
-        public String getValue() {
-            return value;
-        }
-    }
 
     static class NoOpTransactionManager implements PlatformTransactionManager {
 

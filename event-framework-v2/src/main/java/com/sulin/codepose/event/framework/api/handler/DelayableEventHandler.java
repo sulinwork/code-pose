@@ -4,7 +4,7 @@ import com.sulin.codepose.event.framework.api.model.DomainEvent;
 
 import java.time.LocalDateTime;
 
-public interface DelayableEventHandler<P> extends DomainEventHandler<P> {
+public interface DelayableEventHandler<E extends DomainEvent> extends DomainEventHandler<E> {
 
-    LocalDateTime executeTime(DomainEvent event, P payload);
+    LocalDateTime executeTime(E event);
 }

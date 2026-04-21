@@ -6,9 +6,9 @@ import java.util.Optional;
 
 public interface EventHandlerChainRegistry {
 
-    Optional<EventHandlerChain> getChain(String bizCode, String eventType);
+    <E extends DomainEvent> Optional<EventHandlerChain<E>> getChain(String bizCode, String eventType);
 
-    default Optional<EventHandlerChain> getChain(DomainEvent event) {
-        return getChain(event.bizCode(), event.eventType());
+    default <E extends DomainEvent> Optional<EventHandlerChain<E>> getChain(DomainEvent event) {
+        return getChain(event.getBizCode(), event.getEventType());
     }
 }

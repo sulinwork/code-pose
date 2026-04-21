@@ -1,8 +1,10 @@
 package com.sulin.codepose.event.framework.api.handler;
 
+import com.sulin.codepose.event.framework.api.model.DomainEvent;
+
 import java.util.List;
 
-public interface GroupedEventHandler<P> extends DomainEventHandler<P> {
+public interface GroupedEventHandler<E extends DomainEvent> extends DomainEventHandler<E> {
 
-    List<DomainEventHandler<?>> subHandlers();
+    List<DomainEventHandler<E>> subHandlers();
 }

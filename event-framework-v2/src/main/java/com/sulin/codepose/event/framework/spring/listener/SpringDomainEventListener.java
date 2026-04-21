@@ -38,10 +38,10 @@ public class SpringDomainEventListener {
             eventProcessor.process(event);
         } catch (RuntimeException ex) {
             log.error("Failed to process domain event, bizCode={}, bizId={}, eventType={}, eventKey={}",
-                    event.bizCode(),
-                    event.bizId(),
-                    event.eventType(),
-                    event.eventKey(),
+                    event.getBizCode(),
+                    event.getBizId(),
+                    event.getEventType(),
+                    event.getEventKey(),
                     ex);
         }
     }

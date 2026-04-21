@@ -8,7 +8,6 @@ import com.sulin.codepose.event.framework.api.handler.GroupedEventHandler;
 import com.sulin.codepose.event.framework.api.model.DomainEvent;
 import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
-import com.sulin.codepose.event.framework.api.serialize.EventPayloadSerializer;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -20,68 +19,40 @@ import java.util.Optional;
 public class DefaultHandlerExecutionRecordBuilder {
 
     private final EventHandlerChainRegistry chainRegistry;
-    private final EventPayloadSerializer payloadSerializer;
 
-    public DefaultHandlerExecutionRecordBuilder(
-            EventHandlerChainRegistry chainRegistry,
-            EventPayloadSerializer payloadSerializer) {
+    public DefaultHandlerExecutionRecordBuilder(EventHandlerChainRegistry chainRegistry ) {
         this.chainRegistry = chainRegistry;
-        this.payloadSerializer = payloadSerializer;
     }
 
-    public List<HandlerExecutionRecord> build(DomainEvent event) {
-        Optional<EventHandlerChain> chain = chainRegistry.getChain(event);
+    public <E extends DomainEvent> List<HandlerExecutionRecord> build(E event) {
+        Optional<EventHandlerChain<E>> chain = chainRegistry.getChain(event);
         if (!chain.isPresent()) {
             return Collections.emptyList();
         }
         List<HandlerExecutionRecord> records = new ArrayList<>();
-        Instant createdAt = event.occurredAt() == null ? Instant.now() : event.occurredAt();
-        for (DomainEventHandler<?> handler : chain.get().handlers()) {
+        Instant createdAt =  Instant.now();
+        for (DomainEventHandler<E> handler : chain.get().handlers()) {
             appendRecord(event, handler, null, createdAt, records);
         }
         return Collections.unmodifiableList(records);
     }
 
-    private void appendRecord(
-            DomainEvent event,
-            DomainEventHandler<?> handler,
-            String parentHandlerCode,
-            Instant createdAt,
-            List<HandlerExecutionRecord> records
-    ) {
-        Optional<?> payload = handler.buildPayload(event);
-        if (!payload.isPresent()) {
-            return;
-        }
+    private <E extends DomainEvent> void appendRecord(E event, DomainEventHandler<E> handler, String parentHandlerCode, Instant createdAt, List<HandlerExecutionRecord> records) {
         LocalDateTime executeTime = null;
         if (handler instanceof DelayableEventHandler) {
-            executeTime = resolveExecuteTime(event, handler, payload.get());
+            executeTime = resolveExecuteTime(event, handler);
         }
-        records.add(new HandlerExecutionRecord(
-                null,
-                event.eventKey(),
-                event.bizCode(),
-                event.bizId(),
-                event.eventType(),
-                handler.handlerCode(),
-                parentHandlerCode,
-                payloadSerializer.serialize(payload.get()),
-                ExecutionStatus.PENDING,
-                0,
-                executeTime,
-                0L,
-                createdAt,
-                createdAt
-        ));
+        //todo
+        records.add(new HandlerExecutionRecord(null, event.getEventKey(), event.getBizCode(), event.getBizId(), event.getEventType(), handler.handlerCode(), parentHandlerCode, null, ExecutionStatus.PENDING, 0, executeTime, 0L, createdAt, createdAt));
         if (handler instanceof GroupedEventHandler) {
-            for (DomainEventHandler<?> subHandler : ((GroupedEventHandler<?>) handler).subHandlers()) {
+            for (DomainEventHandler<E> subHandler : ((GroupedEventHandler<E>) handler).subHandlers()) {
                 appendRecord(event, subHandler, handler.handlerCode(), createdAt, records);
             }
         }
     }
 
     @SuppressWarnings("unchecked")
-    private <P> LocalDateTime resolveExecuteTime(DomainEvent event, DomainEventHandler<?> handler, Object payload) {
-        return ((DelayableEventHandler<P>) handler).executeTime(event, (P) payload);
+    private <E extends DomainEvent> LocalDateTime resolveExecuteTime(E event, DomainEventHandler<E> handler) {
+        return ((DelayableEventHandler<E>) handler).executeTime(event);
     }
 }

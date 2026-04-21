@@ -9,25 +9,15 @@ import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
 
 import java.util.List;
 
-public abstract class AbstractGroupedEventHandler<P> implements GroupedEventHandler<P> {
+public abstract class AbstractGroupedEventHandler<E extends DomainEvent> implements GroupedEventHandler<E> {
 
     @Override
-    public final EventHandleResult handle(
-            DomainEvent event,
-            P payload,
-            HandlerExecutionRecord record,
-            EventExecutionContext context
-    ) {
-        return handleMain(event, payload, record, context);
+    public final EventHandleResult handle(E event,HandlerExecutionRecord record, EventExecutionContext context) {
+        return handleMain(event, record, context);
     }
 
-    protected abstract EventHandleResult handleMain(
-            DomainEvent event,
-            P payload,
-            HandlerExecutionRecord record,
-            EventExecutionContext context
-    );
+    protected abstract EventHandleResult handleMain(E event,  HandlerExecutionRecord record, EventExecutionContext context);
 
     @Override
-    public abstract List<DomainEventHandler<?>> subHandlers();
+    public abstract List<DomainEventHandler<E>> subHandlers();
 }

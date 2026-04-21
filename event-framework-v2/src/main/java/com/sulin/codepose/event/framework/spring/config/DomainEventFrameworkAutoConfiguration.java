@@ -69,11 +69,8 @@ public class DomainEventFrameworkAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public DefaultHandlerExecutionRecordBuilder defaultHandlerExecutionRecordBuilder(
-            EventHandlerChainRegistry chainRegistry,
-            EventPayloadSerializer payloadSerializer
-    ) {
-        return new DefaultHandlerExecutionRecordBuilder(chainRegistry, payloadSerializer);
+    public DefaultHandlerExecutionRecordBuilder defaultHandlerExecutionRecordBuilder(EventHandlerChainRegistry chainRegistry) {
+        return new DefaultHandlerExecutionRecordBuilder(chainRegistry);
     }
 
     @Bean
@@ -86,34 +83,21 @@ public class DomainEventFrameworkAutoConfiguration {
     @Bean
     @ConditionalOnBean(EventStore.class)
     @ConditionalOnMissingBean
-    public DefaultEventProcessor defaultEventProcessor(
-            EventHandlerChainRegistry chainRegistry,
-            EventPayloadSerializer payloadSerializer,
-            EventStore eventStore,
-            RetryPolicy retryPolicy,
-            EventRecordStateMachine stateMachine
-    ) {
-        return new DefaultEventProcessor(chainRegistry, payloadSerializer, eventStore, retryPolicy, stateMachine);
+    public DefaultEventProcessor defaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
+        return new DefaultEventProcessor(chainRegistry, eventStore, retryPolicy, stateMachine);
     }
 
     @Bean
     @ConditionalOnBean({EventStore.class, DefaultReplayScanner.class, DefaultEventProcessor.class})
     @ConditionalOnMissingBean
-    public DefaultEventReplayCoordinator defaultEventReplayCoordinator(
-            DefaultReplayScanner replayScanner,
-            EventStore eventStore,
-            DefaultEventProcessor eventProcessor
-    ) {
+    public DefaultEventReplayCoordinator defaultEventReplayCoordinator(DefaultReplayScanner replayScanner, EventStore eventStore, DefaultEventProcessor eventProcessor) {
         return new DefaultEventReplayCoordinator(replayScanner, eventStore, eventProcessor);
     }
 
     @Bean
     @ConditionalOnBean(DefaultEventProcessor.class)
     @ConditionalOnMissingBean
-    public SpringDomainEventListener springDomainEventListener(
-            DefaultEventProcessor eventProcessor,
-            ObjectProvider<TaskExecutor> taskExecutorProvider
-    ) {
+    public SpringDomainEventListener springDomainEventListener(DefaultEventProcessor eventProcessor, ObjectProvider<TaskExecutor> taskExecutorProvider) {
         return new SpringDomainEventListener(eventProcessor, taskExecutorProvider.getIfAvailable());
     }
 }

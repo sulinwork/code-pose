@@ -1,24 +1,24 @@
 package com.sulin.codepose.event.framework.api.model;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public interface DomainEvent {
 
-    String bizCode();
+    String getBizCode();
 
-    Long bizId();
+    Long getBizId();
 
-    String eventType();
+    String getEventType();
 
-    String eventKey();
+    String getEventKey();
 
-    Instant occurredAt();
+    default Map<String, EventPayload> getPayloadMap() {
+        return Collections.emptyMap();
+    }
 
-    List<EventPayload> payloads();
-
-    default List<HandlerExecutionRecord> records() {
+    default List<HandlerExecutionRecord> getRecords() {
         return Collections.emptyList();
     }
 }

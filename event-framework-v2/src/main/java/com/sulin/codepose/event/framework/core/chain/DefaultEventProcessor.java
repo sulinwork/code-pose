@@ -10,7 +10,6 @@ import com.sulin.codepose.event.framework.api.model.EventHandleResult;
 import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
 import com.sulin.codepose.event.framework.api.policy.RetryPolicy;
-import com.sulin.codepose.event.framework.api.serialize.EventPayloadSerializer;
 import com.sulin.codepose.event.framework.api.store.EventStore;
 import com.sulin.codepose.event.framework.core.store.EventRecordStateMachine;
 
@@ -24,60 +23,58 @@ import java.util.Optional;
 public class DefaultEventProcessor {
 
     private final EventHandlerChainRegistry chainRegistry;
-    private final EventPayloadSerializer payloadSerializer;
     private final EventStore eventStore;
     private final RetryPolicy retryPolicy;
     private final EventRecordStateMachine stateMachine;
 
-    public DefaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventPayloadSerializer payloadSerializer, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
+    public DefaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
         this.chainRegistry = chainRegistry;
-        this.payloadSerializer = payloadSerializer;
         this.eventStore = eventStore;
         this.retryPolicy = retryPolicy;
         this.stateMachine = stateMachine;
     }
 
     public void process(DomainEvent event) {
-        List<HandlerExecutionRecord> records = event.records();
+        List<HandlerExecutionRecord> records = event.getRecords();
         if (records == null || records.isEmpty()) {
-            records = eventStore.loadByEventKey(event.eventKey());
+            records = eventStore.loadByEventKey(event.getEventKey());
         }
         process(event, records);
     }
 
-    public void process(DomainEvent event, List<HandlerExecutionRecord> records) {
+    public <E extends DomainEvent> void process(E event, List<HandlerExecutionRecord> records) {
         List<HandlerExecutionRecord> safeRecords = records == null ? Collections.emptyList() : records;
         if (safeRecords.isEmpty()) {
             return;
         }
-        Optional<EventHandlerChain> chain = chainRegistry.getChain(event);
+        Optional<EventHandlerChain<E>> chain = chainRegistry.getChain(event);
         if (!chain.isPresent()) {
             return;
         }
         Map<String, HandlerExecutionRecord> recordsByHandlerCode = indexByHandlerCode(safeRecords);
         EventExecutionContext context = new DefaultEventExecutionContext();
-        for (DomainEventHandler<?> handler : chain.get().handlers()) {
+        for (DomainEventHandler<E> handler : chain.get().handlers()) {
             processHandler(handler, event, recordsByHandlerCode, context);
         }
     }
 
-    private void processHandler(DomainEventHandler<?> handler, DomainEvent event, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+    private <E extends DomainEvent> void processHandler(DomainEventHandler<E> handler, E event, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         HandlerExecutionRecord record = recordsByHandlerCode.get(handler.handlerCode());
         if (record == null) {
             return;
         }
         if (handler instanceof GroupedEventHandler) {
-            processGroupedHandler((GroupedEventHandler<?>) handler, event, record, recordsByHandlerCode, context);
+            processGroupedHandler((GroupedEventHandler<E>) handler, event, record, recordsByHandlerCode, context);
             return;
         }
         processSingleHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
-    private void processSingleHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+    private <E extends DomainEvent>  void processSingleHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         executeHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
-    private void processGroupedHandler(GroupedEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+    private <E extends DomainEvent> void processGroupedHandler(GroupedEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         if (record.getStatus() == ExecutionStatus.GROUP_MAIN_FINISHED) {
             runSubHandlers(handler, event, record, recordsByHandlerCode, context);
             return;
@@ -94,8 +91,8 @@ public class DefaultEventProcessor {
         }
     }
 
-    private void runSubHandlers(GroupedEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord parentRecord, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
-        for (DomainEventHandler<?> subHandler : handler.subHandlers()) {
+    private <E extends DomainEvent> void runSubHandlers(GroupedEventHandler<E> handler, E event, HandlerExecutionRecord parentRecord, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+        for (DomainEventHandler<E> subHandler : handler.subHandlers()) {
             HandlerExecutionRecord subRecord = recordsByHandlerCode.get(subHandler.handlerCode());
             if (subRecord == null) {
                 continue;
@@ -116,7 +113,7 @@ public class DefaultEventProcessor {
         }
     }
 
-    private EventHandleResult executeHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+    private <E extends DomainEvent> EventHandleResult executeHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         if (!stateMachine.isRunnable(record)) {
             return null;
         }
@@ -158,14 +155,12 @@ public class DefaultEventProcessor {
     }
 
     @SuppressWarnings("unchecked")
-    private <P> EventHandleResult invokeHandler(DomainEventHandler<?> handler, DomainEvent event, HandlerExecutionRecord record, EventExecutionContext context) {
-        DomainEventHandler<P> typedHandler = (DomainEventHandler<P>) handler;
-        P getPayload = payloadSerializer.deserialize(record.getPayload(), typedHandler.payloadClass());
-        return typedHandler.handle(event, getPayload, record, context);
+    private <E extends DomainEvent> EventHandleResult invokeHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, EventExecutionContext context) {
+        return handler.handle(event, record, context);
     }
 
     private Map<String, HandlerExecutionRecord> indexByHandlerCode(List<HandlerExecutionRecord> records) {
-        Map<String, HandlerExecutionRecord> indexed = new LinkedHashMap<String, HandlerExecutionRecord>();
+        Map<String, HandlerExecutionRecord> indexed = new LinkedHashMap<>();
         for (HandlerExecutionRecord record : records) {
             indexed.put(record.getHandlerCode(), record);
         }

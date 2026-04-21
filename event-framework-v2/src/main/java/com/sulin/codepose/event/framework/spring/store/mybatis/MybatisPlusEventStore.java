@@ -38,7 +38,7 @@ public class MybatisPlusEventStore implements EventStore {
             return;
         }
         for (HandlerExecutionRecord record : records) {
-            if (!Objects.equals(event.eventKey(), record.getEventKey())) {
+            if (!Objects.equals(event.getEventKey(), record.getEventKey())) {
                 throw new IllegalArgumentException("Record getEventKey does not match appended event");
             }
             insertRecord(record);

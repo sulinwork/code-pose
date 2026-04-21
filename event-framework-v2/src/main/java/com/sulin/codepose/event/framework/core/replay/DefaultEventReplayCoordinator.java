@@ -9,11 +9,7 @@ import com.sulin.codepose.event.framework.core.chain.DefaultEventProcessor;
 import com.sulin.codepose.event.framework.core.scheduler.DefaultReplayScanner;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class DefaultEventReplayCoordinator {
 
@@ -50,7 +46,6 @@ public class DefaultEventReplayCoordinator {
                     first.getBizId(),
                     first.getEventType(),
                     first.getEventKey(),
-                    first.getCreatedAt(),
                     records
             );
             eventProcessor.process(replayEvent, records);
@@ -63,7 +58,6 @@ public class DefaultEventReplayCoordinator {
         private final Long bizId;
         private final String eventType;
         private final String eventKey;
-        private final Instant occurredAt;
         private final List<HandlerExecutionRecord> records;
 
         private ReplayDomainEvent(
@@ -71,49 +65,48 @@ public class DefaultEventReplayCoordinator {
                 Long bizId,
                 String eventType,
                 String eventKey,
-                Instant occurredAt,
                 List<HandlerExecutionRecord> records
         ) {
             this.bizCode = bizCode;
             this.bizId = bizId;
             this.eventType = eventType;
             this.eventKey = eventKey;
-            this.occurredAt = occurredAt == null ? Instant.now() : occurredAt;
             this.records = Collections.unmodifiableList(new ArrayList<>(records));
         }
 
         @Override
-        public String bizCode() {
+        public String getBizCode() {
             return bizCode;
         }
 
         @Override
-        public Long bizId() {
+        public Long getBizId() {
             return bizId;
         }
 
         @Override
-        public String eventType() {
+        public String getEventType() {
             return eventType;
         }
 
         @Override
-        public String eventKey() {
+        public String getEventKey() {
             return eventKey;
         }
 
         @Override
-        public Instant occurredAt() {
-            return occurredAt;
+        public Map<String, EventPayload> getPayloadMap() {
+            return Collections.emptyMap();
         }
 
         @Override
-        public List<EventPayload> payloads() {
-            return Collections.emptyList();
+        public void pushPayload(String name, EventPayload payload) {
+
         }
 
+
         @Override
-        public List<HandlerExecutionRecord> records() {
+        public List<HandlerExecutionRecord> getRecords() {
             return records;
         }
     }
