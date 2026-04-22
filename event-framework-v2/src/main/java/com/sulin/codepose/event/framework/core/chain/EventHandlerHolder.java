@@ -10,6 +10,5 @@ public class EventHandlerHolder<E extends DomainEvent> {
 
     public List<DomainEventHandler<E>> getAllHandlers() {
         return null;
-
     }
 }

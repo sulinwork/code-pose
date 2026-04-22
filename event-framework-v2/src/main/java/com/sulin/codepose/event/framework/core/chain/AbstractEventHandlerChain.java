@@ -11,11 +11,8 @@ public abstract class AbstractEventHandlerChain<E extends DomainEvent> implement
     private final EventHandlerHolder<E> holder;
 
     public AbstractEventHandlerChain() {
-        holder = new EventHandlerHolder<E>();
+        holder = new EventHandlerHolder<>();
     }
-
-
-    
 
     public List<DomainEventHandler<E>> handlers() {
         return holder.getAllHandlers();

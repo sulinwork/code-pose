@@ -9,7 +9,7 @@ import com.sulin.codepose.event.framework.api.store.EventStore;
 import com.sulin.codepose.event.framework.core.builder.DefaultHandlerExecutionRecordBuilder;
 import com.sulin.codepose.event.framework.core.chain.DefaultEventProcessor;
 import com.sulin.codepose.event.framework.core.policy.DefaultRetryPolicy;
-import com.sulin.codepose.event.framework.core.registry.InMemoryEventHandlerChainRegistry;
+import com.sulin.codepose.event.framework.core.registry.BasicEventHandlerChainRegistry;
 import com.sulin.codepose.event.framework.core.replay.DefaultEventReplayCoordinator;
 import com.sulin.codepose.event.framework.core.scheduler.DefaultReplayScanner;
 import com.sulin.codepose.event.framework.core.serialize.JacksonEventPayloadSerializer;
@@ -62,9 +62,9 @@ public class DomainEventFrameworkAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public EventHandlerChainRegistry eventHandlerChainRegistry(ObjectProvider<EventHandlerChain> chainsProvider) {
-        List<EventHandlerChain> chains = chainsProvider.orderedStream().collect(Collectors.<EventHandlerChain>toList());
-        return new InMemoryEventHandlerChainRegistry(chains);
+    public EventHandlerChainRegistry eventHandlerChainRegistry(ObjectProvider<EventHandlerChain<?>> chainsProvider) {
+        List<EventHandlerChain<?>> chains = chainsProvider.orderedStream().collect(Collectors.toList());
+        return new BasicEventHandlerChainRegistry(chains);
     }
 
     @Bean
