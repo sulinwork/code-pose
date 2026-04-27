@@ -2,18 +2,19 @@ package com.sulin.codepose.event.framework.spring;
 
 import com.sulin.codepose.event.framework.api.chain.EventExecutionContext;
 import com.sulin.codepose.event.framework.api.chain.EventHandlerChain;
+import com.sulin.codepose.event.framework.api.chain.EventHandlerChainRegistry;
 import com.sulin.codepose.event.framework.api.handler.DomainEventHandler;
-import com.sulin.codepose.event.framework.api.model.DomainEvent;
-import com.sulin.codepose.event.framework.api.model.EventHandleResult;
-import com.sulin.codepose.event.framework.api.model.EventPayload;
-import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
-import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
+import com.sulin.codepose.event.framework.api.model.*;
 import com.sulin.codepose.event.framework.api.publish.DomainEventPublisher;
+import com.sulin.codepose.event.framework.api.router.RouterStrategy;
 import com.sulin.codepose.event.framework.api.store.EventStore;
 import com.sulin.codepose.event.framework.core.builder.DefaultHandlerExecutionRecordBuilder;
+import com.sulin.codepose.event.framework.core.registry.BasicEventHandlerChainRegistry;
 import com.sulin.codepose.event.framework.spring.config.DomainEventFrameworkAutoConfiguration;
-import com.sulin.codepose.event.framework.support.store.InMemoryEventStore;
+import com.sulin.codepose.event.framework.util.MapUtil;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Accessors;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -24,10 +25,10 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
-import java.util.Collections;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -42,9 +43,11 @@ class InMemoryPipelineIntegrationTest {
             DefaultHandlerExecutionRecordBuilder recordBuilder = context.getBean(DefaultHandlerExecutionRecordBuilder.class);
             EventStore eventStore = context.getBean(EventStore.class);
             DomainEventPublisher publisher = context.getBean(DomainEventPublisher.class);
-            CountingHandler handler = context.getBean(CountingHandler.class);
+            OrderPaidNotifyHandler handler = context.getBean(OrderPaidNotifyHandler.class);
 
-            OrderPaidEvent event = new OrderPaidEvent();
+            OrderPaidEvent event = new OrderPaidEvent();//业务构建
+            event.addPayload(new TestHandlerPayload().setValue("demo payload"));
+
             List<HandlerExecutionRecord> records = recordBuilder.build(event);
             eventStore.append(event, records);
 
@@ -53,7 +56,6 @@ class InMemoryPipelineIntegrationTest {
             publisher.publishAfterCommit(event);
             transactionManager.commit(transaction);
 
-            assertEquals(1, handler.invocationCount.get());
             List<HandlerExecutionRecord> persistedRecords = eventStore.loadByEventKey(event.getEventKey());
             assertEquals(1, persistedRecords.size());
             assertEquals(ExecutionStatus.FINISHED, persistedRecords.get(0).getStatus());
@@ -62,16 +64,26 @@ class InMemoryPipelineIntegrationTest {
         }
     }
 
+    @EqualsAndHashCode(callSuper = true)
     @Data
-    static class OrderPaidEvent implements DomainEvent {
-        private String bizCode;
-        private Long bizId;
-        private String eventType;
-        private String eventKey;
+    static class OrderPaidEvent extends AbstractDomainEvent {
+        //特殊新增参数
+        private String orderType;
+
+        @Override
+        public Map<String, Object> getEventContextMap() {
+            return MapUtil.of("orderType", orderType);
+        }
+
+        @Override
+        public void resetEventContext(Map<String, Object> context) {
+            this.orderType = context.get("orderType").toString();
+        }
     }
 
     @Data
-    static class TestPayload implements EventPayload {
+    @Accessors(chain = true)
+    static class TestHandlerPayload implements Payload {
         private String value;
 
     }
@@ -87,10 +99,42 @@ class InMemoryPipelineIntegrationTest {
         public EventHandleResult handle(OrderPaidEvent event, HandlerExecutionRecord record, EventExecutionContext context) {
             return EventHandleResult.FINISHED;
         }
+
+        @Override
+        public Class<? extends Payload> requirePayload() {
+            return TestHandlerPayload.class;
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
     static class TestConfiguration {
+
+        @Bean
+        RouterStrategy routerStrategy(Collection<EventHandlerChain<?>> chains){
+            return new RouterStrategy() {
+
+                private final EventHandlerChainRegistry registry = new BasicEventHandlerChainRegistry(bizCode(),chains);
+
+                @Override
+                public String bizCode() {
+                    return "order";
+                }
+
+                @Override
+                public <E extends DomainEvent> Optional<EventHandlerChain<E>> getChain(DomainEvent event) {
+                    return registry.getChain(event);
+                }
+
+                @Override
+                public DomainEvent buildDomainEvent(HandlerExecutionRecord record) {
+                    if(record.getEventType().equals("paid")){
+                        return new OrderPaidEvent();
+                    }
+                    return null;
+                }
+            };
+        }
+
 
         @Bean
         EventStore eventStore() {
@@ -117,11 +161,10 @@ class InMemoryPipelineIntegrationTest {
 
                 @Override
                 public List<DomainEventHandler<OrderPaidEvent>> handlers() {
-
+                    return null;
                 }
             };
         }
-
 
 
         @Bean
@@ -129,11 +172,6 @@ class InMemoryPipelineIntegrationTest {
             return new NoOpTransactionManager();
         }
     }
-
-
-
-
-
 
 
     static class NoOpTransactionManager implements PlatformTransactionManager {

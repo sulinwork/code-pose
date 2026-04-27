@@ -10,12 +10,8 @@ public interface EventStore {
 
     void append(DomainEvent event, List<HandlerExecutionRecord> records);
 
-    boolean compareAndSet(
-            Long recordId,
-            Long expectedVersion,
-            ExecutionStatus expectedStatus,
-            HandlerExecutionRecord nextRecord
-    );
+
+    boolean update4VersionCas(HandlerExecutionRecord record);
 
     List<HandlerExecutionRecord> scanRetryable(ReplayScanRequest request);
 

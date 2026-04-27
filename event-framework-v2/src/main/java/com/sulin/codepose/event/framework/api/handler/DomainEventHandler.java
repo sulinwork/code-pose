@@ -4,6 +4,7 @@ import com.sulin.codepose.event.framework.api.chain.EventExecutionContext;
 import com.sulin.codepose.event.framework.api.model.DomainEvent;
 import com.sulin.codepose.event.framework.api.model.EventHandleResult;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
+import com.sulin.codepose.event.framework.api.model.Payload;
 
 import java.util.Optional;
 
@@ -13,7 +14,7 @@ public interface DomainEventHandler<E extends DomainEvent> {
 
     EventHandleResult handle(E event, HandlerExecutionRecord record, EventExecutionContext context);
 
-    default String parentHandlerCode() {
+    default Class<? extends Payload> requirePayload() {
         return null;
     }
 }

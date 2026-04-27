@@ -1,14 +1,21 @@
 package com.sulin.codepose.event.framework.spring.store.mybatis;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.sulin.codepose.event.framework.api.model.DomainEvent;
 import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
 import com.sulin.codepose.event.framework.api.store.EventStore;
 import com.sulin.codepose.event.framework.api.store.ReplayScanRequest;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -16,8 +23,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
-public class MybatisPlusEventStore implements EventStore {
+public class MybatisPlusEventStore extends ServiceImpl<DomainEventRecordMapper, DomainEventRecordEntity> implements EventStore {
 
     private static final List<ExecutionStatus> RETRYABLE_STATUSES = Arrays.asList(
             ExecutionStatus.PENDING,
@@ -26,99 +34,57 @@ public class MybatisPlusEventStore implements EventStore {
             ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT
     );
 
-    private final DomainEventRecordMapper mapper;
-
-    public MybatisPlusEventStore(DomainEventRecordMapper mapper) {
-        this.mapper = mapper;
-    }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void append(DomainEvent event, List<HandlerExecutionRecord> records) {
         if (records == null || records.isEmpty()) {
             return;
         }
-        for (HandlerExecutionRecord record : records) {
-            if (!Objects.equals(event.getEventKey(), record.getEventKey())) {
-                throw new IllegalArgumentException("Record getEventKey does not match appended event");
-            }
-            insertRecord(record);
+        List<DomainEventRecordEntity> entities = records.stream().map(DomainEventRecordConverter::toEntity).collect(Collectors.toList());
+        boolean re = this.saveBatch(entities);
+        if (!re) {
+            throw new IllegalStateException("save event error");
         }
     }
 
+
     @Override
-    public boolean compareAndSet(
-            Long recordId,
-            Long expectedVersion,
-            ExecutionStatus expectedStatus,
-            HandlerExecutionRecord nextRecord
-    ) {
-        if (recordId == null || nextRecord == null) {
+    public boolean update4VersionCas(HandlerExecutionRecord record) {
+        if (record == null || record.getId() == null) {
             return false;
         }
-        UpdateWrapper<DomainEventRecordEntity> update = new UpdateWrapper<DomainEventRecordEntity>()
-                .eq("id", recordId)
-                .eq("version", expectedVersion)
-                .eq("status", expectedStatus.name())
-                .set("status", nextRecord.getStatus().name())
-                .set("retry_num", nextRecord.getRetryNum())
-                .set("execute_time", nextRecord.getExecuteTime())
-                .set("version", nextRecord.getVersion())
-                .set("updated_at", toStorageTime(nextRecord.getUpdatedAt()));
-        return mapper.update(null, update) == 1;
+        Long oldVersion = record.getVersion();
+        DomainEventRecordEntity entity = DomainEventRecordConverter.toEntity(record);
+        entity.setUpdatedAt(LocalDateTime.now());
+        entity.setVersion(oldVersion + 1L);
+        return this.update(entity, Wrappers.lambdaUpdate(DomainEventRecordEntity.class)
+                .eq(DomainEventRecordEntity::getId, record.getId())
+                .eq(DomainEventRecordEntity::getVersion, oldVersion)
+        );
     }
 
     @Override
     public List<HandlerExecutionRecord> scanRetryable(ReplayScanRequest request) {
-        QueryWrapper<DomainEventRecordEntity> query = new QueryWrapper<DomainEventRecordEntity>()
-                .in("status", retryableStatusNames())
-                .orderByAsc("id");
-        if (!request.bizCodes().isEmpty()) {
-            query.in("biz_code", request.bizCodes());
-        }
-        if (request.lastId() != null) {
-            query.gt("id", request.lastId());
-        }
-        if (request.maxRetryNum() != null) {
-            query.le("retry_num", request.maxRetryNum());
-        }
-        if (request.createdBefore() != null) {
-            query.le("created_at", toStorageTime(request.createdBefore()));
-        }
-        if (request.executeBefore() != null) {
-            query.and(wrapper -> wrapper.isNull("execute_time").or().le("execute_time", toStorageTime(request.executeBefore())));
-        }
-        if (request.limit() != null && request.limit() > 0) {
-            query.last("limit " + request.limit());
-        }
-        return toRecords(mapper.selectList(query));
+        LambdaQueryWrapper<DomainEventRecordEntity> warp = Wrappers.lambdaQuery(DomainEventRecordEntity.class)
+                .in(DomainEventRecordEntity::getStatus, retryableStatusNames())
+                .in(!CollectionUtils.isEmpty(request.bizCodes()), DomainEventRecordEntity::getBizCode, request.bizCodes())
+                .in(Objects.nonNull(request.lastId()), DomainEventRecordEntity::getId, request.lastId())
+                .in(Objects.nonNull(request.maxRetryNum()), DomainEventRecordEntity::getRetryNum, request.maxRetryNum())
+                .in(Objects.nonNull(request.createdBefore()), DomainEventRecordEntity::getCreatedAt, request.createdBefore())
+                .in(Objects.nonNull(request.executeBefore()), DomainEventRecordEntity::getExecuteTime, request.executeBefore())
+                .last(Objects.nonNull(request.limit()) && request.limit() > 0, " limit " + request.limit())
+
+                .orderByAsc(DomainEventRecordEntity::getId);
+
+        return toRecords(this.list(warp));
     }
 
     @Override
     public List<HandlerExecutionRecord> loadByEventKey(String getEventKey) {
-        QueryWrapper<DomainEventRecordEntity> query = new QueryWrapper<DomainEventRecordEntity>()
-                .eq("event_key", getEventKey)
-                .orderByAsc("id");
-        return toRecords(mapper.selectList(query));
+        return toRecords(this.list(Wrappers.lambdaQuery(DomainEventRecordEntity.class).eq(DomainEventRecordEntity::getEventKey, getEventKey).orderByAsc(DomainEventRecordEntity::getId)));
     }
 
-    private void insertRecord(HandlerExecutionRecord record) {
-        DomainEventRecordEntity entity = DomainEventRecordConverter.toEntity(record);
-        try {
-            mapper.insert(entity);
-        } catch (DuplicateKeyException ex) {
-            throw duplicateRecordException(record, ex);
-        } catch (DataIntegrityViolationException ex) {
-            throw duplicateRecordException(record, ex);
-        } catch (RuntimeException ex) {
-            if (isDuplicateKey(ex)) {
-                throw duplicateRecordException(record, ex);
-            }
-            throw ex;
-        }
-        if (entity.getId() == null) {
-            throw new IllegalStateException("Failed to generate record id for getEventKey=" + record.getEventKey());
-        }
-    }
 
     private IllegalStateException duplicateRecordException(HandlerExecutionRecord record, Exception ex) {
         return new IllegalStateException(
@@ -143,21 +109,6 @@ public class MybatisPlusEventStore implements EventStore {
         return records;
     }
 
-    private boolean isDuplicateKey(Throwable throwable) {
-        Throwable current = throwable;
-        while (current != null) {
-            String message = current.getMessage();
-            if (message != null && (
-                    message.contains("uk_domain_event_record_event_handler")
-                            || message.contains("Unique index or primary key violation")
-                            || message.contains("Duplicate entry")
-            )) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
-    }
 
     private LocalDateTime toStorageTime(java.time.Instant instant) {
         return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);

@@ -11,6 +11,7 @@ import com.sulin.codepose.event.framework.core.chain.DefaultEventProcessor;
 import com.sulin.codepose.event.framework.core.policy.DefaultRetryPolicy;
 import com.sulin.codepose.event.framework.core.registry.BasicEventHandlerChainRegistry;
 import com.sulin.codepose.event.framework.core.replay.DefaultEventReplayCoordinator;
+import com.sulin.codepose.event.framework.core.router.RouterStrategyFactory;
 import com.sulin.codepose.event.framework.core.scheduler.DefaultReplayScanner;
 import com.sulin.codepose.event.framework.core.serialize.JacksonEventPayloadSerializer;
 import com.sulin.codepose.event.framework.core.store.EventRecordStateMachine;
@@ -60,17 +61,11 @@ public class DomainEventFrameworkAutoConfiguration {
         return new EventRecordStateMachine();
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public EventHandlerChainRegistry eventHandlerChainRegistry(ObjectProvider<EventHandlerChain<?>> chainsProvider) {
-        List<EventHandlerChain<?>> chains = chainsProvider.orderedStream().collect(Collectors.toList());
-        return new BasicEventHandlerChainRegistry(chains);
-    }
 
     @Bean
     @ConditionalOnMissingBean
-    public DefaultHandlerExecutionRecordBuilder defaultHandlerExecutionRecordBuilder(EventHandlerChainRegistry chainRegistry) {
-        return new DefaultHandlerExecutionRecordBuilder(chainRegistry);
+    public DefaultHandlerExecutionRecordBuilder defaultHandlerExecutionRecordBuilder(RouterStrategyFactory routerStrategyFactory) {
+        return new DefaultHandlerExecutionRecordBuilder(routerStrategyFactory);
     }
 
     @Bean
@@ -83,15 +78,24 @@ public class DomainEventFrameworkAutoConfiguration {
     @Bean
     @ConditionalOnBean(EventStore.class)
     @ConditionalOnMissingBean
-    public DefaultEventProcessor defaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
-        return new DefaultEventProcessor(chainRegistry, eventStore, retryPolicy, stateMachine);
+    public DefaultEventProcessor defaultEventProcessor(RouterStrategyFactory routerStrategyFactory, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
+        return new DefaultEventProcessor(routerStrategyFactory, eventStore, retryPolicy, stateMachine);
     }
 
     @Bean
     @ConditionalOnBean({EventStore.class, DefaultReplayScanner.class, DefaultEventProcessor.class})
     @ConditionalOnMissingBean
-    public DefaultEventReplayCoordinator defaultEventReplayCoordinator(DefaultReplayScanner replayScanner, EventStore eventStore, DefaultEventProcessor eventProcessor) {
-        return new DefaultEventReplayCoordinator(replayScanner, eventStore, eventProcessor);
+    public DefaultEventReplayCoordinator defaultEventReplayCoordinator(DefaultReplayScanner replayScanner,
+                                                                       EventStore eventStore,
+                                                                       DefaultEventProcessor eventProcessor,
+                                                                       RouterStrategyFactory routerStrategyFactory) {
+        return new DefaultEventReplayCoordinator(replayScanner, eventStore, eventProcessor,routerStrategyFactory);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RouterStrategyFactory routerStrategyFactory(){
+        return new RouterStrategyFactory();
     }
 
     @Bean

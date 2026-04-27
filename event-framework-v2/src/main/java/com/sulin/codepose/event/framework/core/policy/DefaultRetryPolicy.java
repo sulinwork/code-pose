@@ -12,7 +12,7 @@ public class DefaultRetryPolicy implements RetryPolicy {
     private final Duration retryDelay;
 
     public DefaultRetryPolicy() {
-        this(16, Duration.ofMinutes(5));
+        this(6, Duration.ofMinutes(0));
     }
 
     public DefaultRetryPolicy(int maxRetryCount, Duration retryDelay) {

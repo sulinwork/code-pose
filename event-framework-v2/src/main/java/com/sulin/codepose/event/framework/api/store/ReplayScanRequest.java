@@ -19,8 +19,7 @@ public final class ReplayScanRequest {
             Integer limit,
             Integer maxRetryNum,
             Instant createdBefore,
-            Instant executeBefore
-    ) {
+            Instant executeBefore) {
         this.bizCodes = bizCodes == null ? Collections.emptyList() : Collections.unmodifiableList(bizCodes);
         this.lastId = lastId;
         this.limit = limit;

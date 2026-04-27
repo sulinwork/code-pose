@@ -2,7 +2,6 @@ package com.sulin.codepose.event.framework.core.chain;
 
 import com.sulin.codepose.event.framework.api.chain.EventExecutionContext;
 import com.sulin.codepose.event.framework.api.chain.EventHandlerChain;
-import com.sulin.codepose.event.framework.api.chain.EventHandlerChainRegistry;
 import com.sulin.codepose.event.framework.api.handler.DomainEventHandler;
 import com.sulin.codepose.event.framework.api.handler.GroupedEventHandler;
 import com.sulin.codepose.event.framework.api.model.DomainEvent;
@@ -11,7 +10,9 @@ import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
 import com.sulin.codepose.event.framework.api.policy.RetryPolicy;
 import com.sulin.codepose.event.framework.api.store.EventStore;
+import com.sulin.codepose.event.framework.core.router.RouterStrategyFactory;
 import com.sulin.codepose.event.framework.core.store.EventRecordStateMachine;
+import com.sulin.codepose.event.framework.util.AssetUtil;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -22,13 +23,13 @@ import java.util.Optional;
 
 public class DefaultEventProcessor {
 
-    private final EventHandlerChainRegistry chainRegistry;
+    private final RouterStrategyFactory routerStrategyFactory;
     private final EventStore eventStore;
     private final RetryPolicy retryPolicy;
     private final EventRecordStateMachine stateMachine;
 
-    public DefaultEventProcessor(EventHandlerChainRegistry chainRegistry, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
-        this.chainRegistry = chainRegistry;
+    public DefaultEventProcessor(RouterStrategyFactory routerStrategyFactory, EventStore eventStore, RetryPolicy retryPolicy, EventRecordStateMachine stateMachine) {
+        this.routerStrategyFactory = routerStrategyFactory;
         this.eventStore = eventStore;
         this.retryPolicy = retryPolicy;
         this.stateMachine = stateMachine;
@@ -47,7 +48,7 @@ public class DefaultEventProcessor {
         if (safeRecords.isEmpty()) {
             return;
         }
-        Optional<EventHandlerChain<E>> chain = chainRegistry.getChain(event);
+        Optional<EventHandlerChain<E>> chain = routerStrategyFactory.getStrategy(event.getBizCode()).getChain(event);
         if (!chain.isPresent()) {
             return;
         }
@@ -70,7 +71,7 @@ public class DefaultEventProcessor {
         processSingleHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
-    private <E extends DomainEvent>  void processSingleHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+    private <E extends DomainEvent> void processSingleHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
         executeHandler(handler, event, record, recordsByHandlerCode, context);
     }
 
@@ -103,8 +104,7 @@ public class DefaultEventProcessor {
             }
             if (subResult == EventHandleResult.ABORT || subResult == EventHandleResult.GROUP_MAIN_FINISHED_SUB_ABORT) {
                 HandlerExecutionRecord nextParent = stateMachine.afterGroupedSubHandlerAbort(parentRecord);
-                persistTransition(parentRecord, nextParent);
-                recordsByHandlerCode.put(parentRecord.getHandlerCode(), nextParent);
+                persistTransition(nextParent);
                 return;
             }
             if (subResult == EventHandleResult.FAIL) {
@@ -114,47 +114,46 @@ public class DefaultEventProcessor {
     }
 
     private <E extends DomainEvent> EventHandleResult executeHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, Map<String, HandlerExecutionRecord> recordsByHandlerCode, EventExecutionContext context) {
+        //是否是可以运行的状态
         if (!stateMachine.isRunnable(record)) {
             return null;
         }
+        //时间是否满足
         if (stateMachine.isFutureExecution(record, LocalDateTime.now())) {
             return null;
         }
-        HandlerExecutionRecord currentRecord = moveToProcessing(record);
-        if (currentRecord == null) {
-            return null;
-        }
-        recordsByHandlerCode.put(handler.handlerCode(), currentRecord);
+        //更新为处理中
+        moveToProcessing(record);
+
         try {
-            EventHandleResult result = invokeHandler(handler, event, currentRecord, context);
-            HandlerExecutionRecord nextRecord = stateMachine.afterHandleResult(currentRecord, result, retryPolicy);
-            persistTransition(currentRecord, nextRecord);
-            recordsByHandlerCode.put(handler.handlerCode(), nextRecord);
+            //执行
+            EventHandleResult result = invokeHandler(handler, event, record, context);
+            //获取下一个状态
+            HandlerExecutionRecord nextRecord = stateMachine.afterHandleResult(record, result, retryPolicy);
+            persistTransition(nextRecord);
             context.putResult(handler.handlerCode(), result);
             return result;
         } catch (RuntimeException ex) {
-            HandlerExecutionRecord nextRecord = stateMachine.afterHandleException(currentRecord, retryPolicy);
-            persistTransition(currentRecord, nextRecord);
-            recordsByHandlerCode.put(handler.handlerCode(), nextRecord);
+            HandlerExecutionRecord nextRecord = stateMachine.afterHandleException(record, retryPolicy);
+            persistTransition(nextRecord);
             context.putResult(handler.handlerCode(), EventHandleResult.FAIL);
             return EventHandleResult.FAIL;
         }
     }
 
-    private HandlerExecutionRecord moveToProcessing(HandlerExecutionRecord record) {
+    private void moveToProcessing(HandlerExecutionRecord record) {
         if (record.getStatus() != ExecutionStatus.PENDING) {
-            return record;
+            return;
         }
-        HandlerExecutionRecord processingRecord = stateMachine.toProcessing(record);
-        boolean updated = eventStore.compareAndSet(record.getId(), record.getVersion(), record.getStatus(), processingRecord);
-        return updated ? processingRecord : null;
+        stateMachine.toProcessing(record);
+        boolean updated = eventStore.update4VersionCas(record);
+        AssetUtil.isTrue(updated, "event move to processing failed!" + record);
     }
 
-    private void persistTransition(HandlerExecutionRecord currentRecord, HandlerExecutionRecord nextRecord) {
-        eventStore.compareAndSet(currentRecord.getId(), currentRecord.getVersion(), currentRecord.getStatus(), nextRecord);
+    private void persistTransition(HandlerExecutionRecord nextRecord) {
+        eventStore.update4VersionCas(nextRecord);
     }
 
-    @SuppressWarnings("unchecked")
     private <E extends DomainEvent> EventHandleResult invokeHandler(DomainEventHandler<E> handler, E event, HandlerExecutionRecord record, EventExecutionContext context) {
         return handler.handle(event, record, context);
     }

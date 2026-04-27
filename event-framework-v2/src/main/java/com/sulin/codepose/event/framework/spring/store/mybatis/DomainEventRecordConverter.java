@@ -2,14 +2,15 @@ package com.sulin.codepose.event.framework.spring.store.mybatis;
 
 import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
+import com.sulin.codepose.event.framework.api.serialize.EventPayloadSerializer;
+import com.sulin.codepose.event.framework.core.serialize.JacksonEventPayloadSerializer;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Objects;
 
 final class DomainEventRecordConverter {
-
-    private static final ZoneOffset STORAGE_OFFSET = ZoneOffset.UTC;
 
     private DomainEventRecordConverter() {
     }
@@ -28,35 +29,30 @@ final class DomainEventRecordConverter {
         entity.setRetryNum(record.getRetryNum());
         entity.setExecuteTime(record.getExecuteTime());
         entity.setVersion(record.getVersion());
-        entity.setCreatedAt(toLocalDateTime(record.getCreatedAt()));
-        entity.setUpdatedAt(toLocalDateTime(record.getUpdatedAt()));
+        entity.setCreatedAt(Objects.nonNull(record.getId()) ? null : LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
+        entity.setEventContext(record.getEventContext());
         return entity;
     }
 
     static HandlerExecutionRecord toRecord(DomainEventRecordEntity entity) {
-        return new HandlerExecutionRecord(
-                entity.getId(),
-                entity.getEventKey(),
-                entity.getBizCode(),
-                entity.getBizId(),
-                entity.getEventType(),
-                entity.getHandlerCode(),
-                entity.getParentHandlerCode(),
-                entity.getPayload(),
-                ExecutionStatus.valueOf(entity.getStatus()),
-                entity.getRetryNum(),
-                entity.getExecuteTime(),
-                entity.getVersion(),
-                toInstant(entity.getCreatedAt()),
-                toInstant(entity.getUpdatedAt())
-        );
+
+        return new HandlerExecutionRecord()
+                .setId(entity.getId())
+                .setEventKey(entity.getEventKey())
+                .setBizCode(entity.getBizCode())
+                .setBizId(entity.getBizId())
+                .setEventType(entity.getEventType())
+                .setHandlerCode(entity.getHandlerCode())
+                .setParentHandlerCode(entity.getParentHandlerCode())
+                .setStatus(ExecutionStatus.valueOf(entity.getStatus()))
+                .setRetryNum(entity.getRetryNum())
+                .setExecuteTime(entity.getExecuteTime())
+                .setVersion(entity.getVersion())
+                .setPayload(entity.getPayload())
+                .setEventContext(entity.getEventContext());
+
+
     }
 
-    private static LocalDateTime toLocalDateTime(Instant instant) {
-        return instant == null ? null : LocalDateTime.ofInstant(instant, STORAGE_OFFSET);
-    }
-
-    private static Instant toInstant(LocalDateTime dateTime) {
-        return dateTime == null ? null : dateTime.toInstant(STORAGE_OFFSET);
-    }
 }

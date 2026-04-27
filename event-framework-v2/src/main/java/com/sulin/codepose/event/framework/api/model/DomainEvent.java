@@ -8,15 +8,22 @@ public interface DomainEvent {
 
     String getBizCode();
 
-    Long getBizId();
+    String getBizId();
 
     String getEventType();
 
     String getEventKey();
 
-    default Map<String, EventPayload> getPayloadMap() {
+    List<Payload> getPayloads();
+
+    default Map<String, Object> getEventContextMap() {
         return Collections.emptyMap();
     }
+
+    default void resetEventContext(Map<String, Object> context) {
+
+    }
+
 
     default List<HandlerExecutionRecord> getRecords() {
         return Collections.emptyList();

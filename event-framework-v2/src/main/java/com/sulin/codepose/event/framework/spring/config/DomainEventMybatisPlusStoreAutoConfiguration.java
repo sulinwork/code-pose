@@ -25,7 +25,7 @@ public class DomainEventMybatisPlusStoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(EventStore.class)
-    public EventStore mybatisPlusEventStore(DomainEventRecordMapper mapper) {
-        return new MybatisPlusEventStore(mapper);
+    public EventStore mybatisPlusEventStore() {
+        return new MybatisPlusEventStore();
     }
 }

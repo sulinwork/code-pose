@@ -18,94 +18,55 @@ public class EventRecordStateMachine {
         return record.getExecuteTime() != null && record.getExecuteTime().isAfter(now);
     }
 
-    public HandlerExecutionRecord toProcessing(HandlerExecutionRecord record) {
+    public void toProcessing(HandlerExecutionRecord record) {
         if (record.getStatus() != ExecutionStatus.PENDING) {
-            return record;
+            return;
         }
-        return record.withState(
-                ExecutionStatus.PROCESSING,
-                record.getRetryNum(),
-                record.getExecuteTime(),
-                record.getVersion() + 1,
-                Instant.now()
-        );
+        record.setStatus(ExecutionStatus.PROCESSING);
     }
 
     public HandlerExecutionRecord afterHandleResult(
             HandlerExecutionRecord record,
             EventHandleResult result,
-            RetryPolicy retryPolicy
-    ) {
+            RetryPolicy retryPolicy) {
         switch (result) {
             case FINISHED:
-                return record.withState(
-                        ExecutionStatus.FINISHED,
-                        record.getRetryNum(),
-                        record.getExecuteTime(),
-                        record.getVersion() + 1,
-                        Instant.now()
-                );
+                record.setStatus(ExecutionStatus.FINISHED);
+                return record;
             case GROUP_MAIN_FINISHED:
-                return record.withState(
-                        ExecutionStatus.GROUP_MAIN_FINISHED,
-                        record.getRetryNum(),
-                        record.getExecuteTime(),
-                        record.getVersion() + 1,
-                        Instant.now()
-                );
+                record.setStatus(ExecutionStatus.GROUP_MAIN_FINISHED);
+                return record;
             case GROUP_MAIN_FINISHED_SUB_ABORT:
-                return record.withState(
-                        ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT,
-                        record.getRetryNum(),
-                        record.getExecuteTime(),
-                        record.getVersion() + 1,
-                        Instant.now()
-                );
+                record.setStatus(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT);
+                return record;
             case ABORT:
-                return record.withState(
-                        ExecutionStatus.ABORT,
-                        record.getRetryNum(),
-                        record.getExecuteTime(),
-                        record.getVersion() + 1,
-                        Instant.now()
-                );
+                record.setStatus(ExecutionStatus.ABORT);
+                return record;
             case FAIL:
             default:
-                return onFailure(record, retryPolicy);
+                onFailure(record, retryPolicy);
+                return record;
         }
     }
 
     public HandlerExecutionRecord afterHandleException(HandlerExecutionRecord record, RetryPolicy retryPolicy) {
-        return onFailure(record, retryPolicy);
+        onFailure(record, retryPolicy);
+        return record;
     }
 
     public HandlerExecutionRecord afterGroupedSubHandlerAbort(HandlerExecutionRecord record) {
-        return record.withState(
-                ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT,
-                record.getRetryNum(),
-                record.getExecuteTime(),
-                record.getVersion() + 1,
-                Instant.now()
-        );
+        record.setStatus(ExecutionStatus.GROUP_MAIN_FINISHED_SUB_ABORT);
+        return record;
     }
 
-    private HandlerExecutionRecord onFailure(HandlerExecutionRecord record, RetryPolicy retryPolicy) {
+    private void onFailure(HandlerExecutionRecord record, RetryPolicy retryPolicy) {
         int nextRetryNum = record.getRetryNum() + 1;
         if (retryPolicy.canRetry(record)) {
-            return record.withState(
-                    ExecutionStatus.PENDING,
-                    nextRetryNum,
-                    retryPolicy.nextExecuteTime(record),
-                    record.getVersion() + 1,
-                    Instant.now()
-            );
+            record.setStatus(ExecutionStatus.PENDING);
+            record.setRetryNum(nextRetryNum);
+            record.setExecuteTime(retryPolicy.nextExecuteTime(record));
+            return;
         }
-        return record.withState(
-                ExecutionStatus.ABORT,
-                nextRetryNum,
-                record.getExecuteTime(),
-                record.getVersion() + 1,
-                Instant.now()
-        );
+        record.setStatus(ExecutionStatus.ABORT);
     }
 }

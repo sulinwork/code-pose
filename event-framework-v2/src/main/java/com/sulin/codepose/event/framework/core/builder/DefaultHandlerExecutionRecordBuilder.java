@@ -8,50 +8,75 @@ import com.sulin.codepose.event.framework.api.handler.GroupedEventHandler;
 import com.sulin.codepose.event.framework.api.model.DomainEvent;
 import com.sulin.codepose.event.framework.api.model.ExecutionStatus;
 import com.sulin.codepose.event.framework.api.model.HandlerExecutionRecord;
+import com.sulin.codepose.event.framework.api.model.Payload;
+import com.sulin.codepose.event.framework.api.serialize.EventPayloadSerializer;
+import com.sulin.codepose.event.framework.core.router.RouterStrategyFactory;
+import com.sulin.codepose.event.framework.core.serialize.JacksonEventPayloadSerializer;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class DefaultHandlerExecutionRecordBuilder {
 
-    private final EventHandlerChainRegistry chainRegistry;
+    private final RouterStrategyFactory routerStrategyFactory;
 
-    public DefaultHandlerExecutionRecordBuilder(EventHandlerChainRegistry chainRegistry ) {
-        this.chainRegistry = chainRegistry;
+    private final EventPayloadSerializer eventPayloadSerializer = new JacksonEventPayloadSerializer();
+
+
+    public DefaultHandlerExecutionRecordBuilder(RouterStrategyFactory routerStrategyFactory) {
+        this.routerStrategyFactory = routerStrategyFactory;
     }
 
     public <E extends DomainEvent> List<HandlerExecutionRecord> build(E event) {
-        Optional<EventHandlerChain<E>> chain = chainRegistry.getChain(event);
+        Optional<EventHandlerChain<E>> chain = routerStrategyFactory.getStrategy(event.getBizCode()).getChain(event);
         if (!chain.isPresent()) {
             return Collections.emptyList();
         }
         List<HandlerExecutionRecord> records = new ArrayList<>();
-        Instant createdAt =  Instant.now();
         for (DomainEventHandler<E> handler : chain.get().handlers()) {
-            appendRecord(event, handler, null, createdAt, records);
+            appendRecord(event, handler, null, records);
         }
         return Collections.unmodifiableList(records);
     }
 
-    private <E extends DomainEvent> void appendRecord(E event, DomainEventHandler<E> handler, String parentHandlerCode, Instant createdAt, List<HandlerExecutionRecord> records) {
-        LocalDateTime executeTime = null;
+    private <E extends DomainEvent> void appendRecord(E event, DomainEventHandler<E> handler, String parentHandlerCode, List<HandlerExecutionRecord> records) {
+        LocalDateTime executeTime = LocalDateTime.now();
         if (handler instanceof DelayableEventHandler) {
             executeTime = resolveExecuteTime(event, handler);
         }
-        //todo
-        records.add(new HandlerExecutionRecord(null, event.getEventKey(), event.getBizCode(), event.getBizId(), event.getEventType(), handler.handlerCode(), parentHandlerCode, null, ExecutionStatus.PENDING, 0, executeTime, 0L, createdAt, createdAt));
+
+        Map<String, Payload> payloadMap = Optional.ofNullable(event.getPayloads()).orElse(Collections.emptyList())
+                .stream()
+                .collect(Collectors.toMap(e -> e.getClass().getName(), Function.identity()));
+
+        Optional<Payload> payloadOpt = Optional.ofNullable(handler.requirePayload())
+                .map(e -> payloadMap.get(e.getName()));
+
+        records.add(
+                new HandlerExecutionRecord()
+                        .setEventKey(event.getEventKey())
+                        .setBizCode(event.getBizCode())
+                        .setBizId(event.getBizId())
+                        .setEventType(event.getEventType())
+                        .setEventContext(Optional.ofNullable(event.getEventContextMap()).map(eventPayloadSerializer::serialize).orElse(null))
+                        .setHandlerCode(handler.handlerCode())
+                        .setParentHandlerCode(parentHandlerCode)
+                        .setPayload(payloadOpt.map(eventPayloadSerializer::serialize).orElse(null))
+                        .setStatus(ExecutionStatus.PENDING)
+                        .setRetryNum(0)
+                        .setVersion(1L)
+                        .setExecuteTime(executeTime)
+        );
         if (handler instanceof GroupedEventHandler) {
             for (DomainEventHandler<E> subHandler : ((GroupedEventHandler<E>) handler).subHandlers()) {
-                appendRecord(event, subHandler, handler.handlerCode(), createdAt, records);
+                appendRecord(event, subHandler, handler.handlerCode(), records);
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
     private <E extends DomainEvent> LocalDateTime resolveExecuteTime(E event, DomainEventHandler<E> handler) {
         return ((DelayableEventHandler<E>) handler).executeTime(event);
     }
